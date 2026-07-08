@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 80" fill="none">
+  <!-- Shield/house shape -->
+  <polygon points="30,8 54,8 54,40 42,52 30,40" fill="#1a2f5e" stroke="#1a2f5e" stroke-width="1"/>
+  <polygon points="32,10 52,10 52,39 42,49 32,39" fill="#e8eef8" stroke="#1a2f5e" stroke-width="0.5"/>
+  <!-- Bricks -->
+  <rect x="34" y="28" width="7" height="4" fill="#e07820" rx="0.5"/>
+  <rect x="43" y="28" width="7" height="4" fill="#e07820" rx="0.5"/>
+  <rect x="37" y="34" width="7" height="4" fill="#e07820" rx="0.5"/>
+  <rect x="46" y="34" width="6" height="4" fill="#e07820" rx="0.5"/>
+  <!-- Window -->
+  <rect x="37" y="16" width="5" height="5" fill="#1a2f5e" rx="0.5"/>
+  <rect x="43" y="16" width="5" height="5" fill="#1a2f5e" rx="0.5"/>
+  <!-- Crane vertical -->
+  <rect x="50" y="2" width="3" height="22" fill="#e07820"/>
+  <!-- Crane horizontal -->
+  <rect x="38" y="2" width="15" height="2.5" fill="#e07820"/>
+  <!-- Crane hook -->
+  <line x1="50" y1="4.5" x2="50" y2="10" stroke="#1a2f5e" stroke-width="1"/>
+  <rect x="48" y="10" width="4" height="3" fill="#e07820" rx="0.5"/>
+  <!-- Trowel -->
+  <path d="M36 42 L48 32" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/>
+  <ellipse cx="35" cy="43" rx="4" ry="2.5" fill="#9ca3af" transform="rotate(-40 35 43)"/>
+
+  <!-- Text: ДомСтрой -->
+  <text x="62" y="34" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#1a2f5e" letter-spacing="-0.5">ДомСтрой</text>
+  <!-- Subtext -->
+  <text x="63" y="50" font-family="Arial, sans-serif" font-size="10" fill="#e07820" letter-spacing="0.5">строительные материалы</text>
+</svg>
