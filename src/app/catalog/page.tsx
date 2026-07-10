@@ -1,25 +1,19 @@
 import Link from "next/link";
-import { getAssortment } from "@/lib/moysklad";
-
-function formatPrice(value?: number) {
-  if (value == null) return null;
-  return (value / 100).toLocaleString("ru-RU", {
-    style: "currency",
-    currency: "RUB",
-    maximumFractionDigits: 0,
-  });
-}
+import { getAssortment, getProductFolders } from "@/lib/moysklad";
+import CatalogBrowser from "@/components/CatalogBrowser";
 
 export default async function CatalogPage() {
-  let items: Awaited<ReturnType<typeof getAssortment>>["rows"] = [];
-  let error: string | null = null;
+  const [foldersResult, itemsResult] = await Promise.allSettled([
+    getProductFolders(),
+    getAssortment(100, 0),
+  ]);
 
-  try {
-    const data = await getAssortment(100, 0);
-    items = data.rows;
-  } catch (err) {
-    error = err instanceof Error ? err.message : "Ошибка загрузки каталога";
-  }
+  const folders = foldersResult.status === "fulfilled" ? foldersResult.value.rows : [];
+  const initialItems = itemsResult.status === "fulfilled" ? itemsResult.value.rows : [];
+  const error =
+    foldersResult.status === "rejected" || itemsResult.status === "rejected"
+      ? "Ошибка загрузки данных из МойСклад"
+      : null;
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
@@ -35,47 +29,17 @@ export default async function CatalogPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8">
-        <h1 className="text-2xl font-semibold text-slate-900">Каталог товаров</h1>
-        <p className="mt-2 text-sm text-slate-500">Выгрузка из МойСклад</p>
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-slate-900">Каталог товаров</h1>
+          <p className="mt-1 text-sm text-slate-500">Наведите на группу — товары появятся справа</p>
+        </div>
 
         {error && (
-          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
+          <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((item) => {
-            const price = item.salePrices?.[0]?.value;
-            return (
-              <div
-                key={item.id}
-                className="flex flex-col justify-between rounded-lg border border-slate-200 bg-white p-4 transition hover:border-amber-300 hover:shadow-md"
-              >
-                <div>
-                  <p className="font-semibold text-slate-900">{item.name}</p>
-                  {item.article && (
-                    <p className="mt-1 text-xs text-slate-400">Артикул: {item.article}</p>
-                  )}
-                  {item.code && (
-                    <p className="text-xs text-slate-400">Код: {item.code}</p>
-                  )}
-                </div>
-                <div className="mt-4 flex items-end justify-between">
-                  <div>
-                    {formatPrice(price) ? (
-                      <p className="text-lg font-bold text-amber-600">{formatPrice(price)}</p>
-                    ) : (
-                      <p className="text-sm text-slate-400">Цена по запросу</p>
-                    )}
-                    {item.quantity != null && (
-                      <p className="text-xs text-slate-500">В наличии: {item.quantity}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+          <CatalogBrowser folders={folders} initialItems={initialItems} />
         </div>
       </main>
     </div>

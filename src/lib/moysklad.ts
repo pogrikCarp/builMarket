@@ -20,6 +20,19 @@ function getMoyskladToken() {
   return process.env.MOYSKLAD_TOKEN || getTokenFromFile();
 }
 
+export type MoyskladProductFolder = {
+  meta: { href: string; type: string };
+  id: string;
+  name: string;
+  pathName?: string;
+  productFolder?: { meta: { href: string } };
+};
+
+export type MoyskladProductFolderResponse = {
+  rows: MoyskladProductFolder[];
+  meta: { size: number; limit: number; offset: number };
+};
+
 export type MoyskladAssortmentItem = {
   meta: {
     href: string;
@@ -35,6 +48,7 @@ export type MoyskladAssortmentItem = {
   }[];
   quantity?: number;
   uom?: { name: string };
+  productFolder?: { meta: { href: string; type: string }; name?: string };
 };
 
 export type MoyskladAssortmentResponse = {
@@ -90,6 +104,41 @@ export async function getAssortment(
 export async function getProductById(id: string): Promise<MoyskladAssortmentItem> {
   const url = buildUrl(`/entity/assortment/${id}`);
   const res = await fetch(url, { headers: getAuthHeaders() });
+  if (!res.ok) {
+    throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
+  }
+  return res.json();
+}
+
+export async function getProductFolders(): Promise<MoyskladProductFolderResponse> {
+  const params = new URLSearchParams();
+  params.append("limit", "100");
+  params.append("order", "name,asc");
+  const url = buildUrl("/entity/productfolder", params);
+  const res = await fetch(url, {
+    headers: getAuthHeaders(),
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) {
+    throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
+  }
+  return res.json();
+}
+
+export async function getAssortmentByFolder(
+  folderHref: string,
+  limit = 100,
+  offset = 0
+): Promise<MoyskladAssortmentResponse> {
+  const params = new URLSearchParams();
+  params.append("limit", String(limit));
+  params.append("offset", String(offset));
+  params.append("filter", `productFolder=${folderHref}`);
+  const url = buildUrl("/entity/assortment", params);
+  const res = await fetch(url, {
+    headers: getAuthHeaders(),
+    next: { revalidate: 60 },
+  });
   if (!res.ok) {
     throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
   }

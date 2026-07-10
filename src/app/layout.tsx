@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import "./globals.css";
@@ -7,6 +7,12 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin", "cyrillic"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   title: "buildMarket — витрина стройматериалов",
@@ -24,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="ru"
       className={`${inter.variable} font-[family-name:var(--font-inter)] h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

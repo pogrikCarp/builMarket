@@ -542,99 +542,172 @@ const CallbackModal = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
+type MsFolder = { id: string; name: string; meta: { href: string }; productFolder?: { meta: { href: string } } };
+type MsItem = { id: string; name: string; article?: string; salePrices?: { value: number }[] };
+
+function menuFormatPrice(value?: number) {
+  if (!value) return null;
+  return (value / 100).toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 });
+}
+
 const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(CATALOG_GROUPS[0]?.id ?? null);
+  const [folders, setFolders] = useState<MsFolder[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+  const [activeFolder, setActiveFolder] = useState<MsFolder | null>(null);
+  const [items, setItems] = useState<MsItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (open && CATALOG_GROUPS.length) {
-      setActiveGroupId(CATALOG_GROUPS[0].id);
-    }
+    if (!open) return;
+    setLoadingFolders(true);
+    fetch("/api/moysklad/folders")
+      .then((r) => r.json())
+      .then((data) => {
+        const rows: MsFolder[] = data.rows ?? [];
+        setFolders(rows);
+        if (rows.length) loadItems(rows[0]);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingFolders(false));
   }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
-    const previousOverflow = document.body.style.overflow;
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [open]);
+
+  useEffect(() => () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    if (abortRef.current) abortRef.current.abort();
+  }, []);
+
+  const loadItems = (folder: MsFolder) => {
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setActiveFolder(folder);
+    setLoadingItems(true);
+    fetch(`/api/moysklad/by-folder?folderHref=${encodeURIComponent(folder.meta.href)}&limit=24`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((d) => setItems(d.rows ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingItems(false));
+  };
+
+  const handleHover = (folder: MsFolder) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => loadItems(folder), 150);
+  };
 
   if (!open) return null;
 
-  const activeGroup = CATALOG_GROUPS.find((group) => group.id === activeGroupId) ?? CATALOG_GROUPS[0];
-
   return (
-    <div className="fixed inset-0 z-[120] bg-white/98 px-4 py-6 text-slate-800" onClick={onClose}>
-      <div className="mx-auto flex h-full max-w-7xl flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.45em] text-amber-500">Каталог ДомСтрой</p>
-            <h3 className="mt-2 text-3xl font-semibold text-slate-900">Быстрый доступ к группам и разделам</h3>
-            <p className="text-sm text-slate-500">Списки синхронизируем с MoySklad — сейчас демо-структура для верстки</p>
+    <div className="fixed inset-0 z-[120] bg-black/20 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="mx-auto flex h-full w-full max-w-7xl flex-col bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Шапка */}
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-amber-500">Каталог</p>
+            {activeFolder && (
+              <>
+                <span className="text-slate-300">/</span>
+                <p className="text-sm font-semibold text-slate-800">{activeFolder.name}</p>
+              </>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
-            aria-label="Закрыть каталог"
-          >
-            ✕
+          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:text-slate-900" aria-label="Закрыть">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <div className="mt-8 flex flex-1 overflow-hidden">
-          <nav className="hidden w-64 shrink-0 flex-col gap-1 border-r border-slate-200 pr-6 md:flex">
-            {CATALOG_GROUPS.map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                onClick={() => setActiveGroupId(group.id)}
-                className={`flex w-full items-center justify-between border-b border-transparent py-3 text-left text-base transition ${
-                  activeGroup?.id === group.id
-                    ? "font-semibold text-slate-900"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                <span>{group.title}</span>
-                <svg className="h-3 w-3 text-slate-300" viewBox="0 0 12 12" fill="none">
-                  <path d="M4 2l3 3-3 3" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} />
-                </svg>
-              </button>
-            ))}
-          </nav>
-          <div className="flex-1 overflow-y-auto pl-0 md:pl-10">
-            <div className="border-b border-slate-200 pb-6 md:hidden">
-              <div className="flex gap-2 overflow-x-auto">
-                {CATALOG_GROUPS.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => setActiveGroupId(group.id)}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                      activeGroup?.id === group.id ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"
-                    }`}
+
+        {loadingFolders ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          </div>
+        ) : (
+          <div className="flex flex-1 overflow-hidden">
+            {/* Sidebar групп */}
+            <aside className="w-40 shrink-0 overflow-y-auto border-r border-slate-100 py-3 sm:w-52 md:w-56">
+              <p className="px-4 pb-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-400">Группы товаров</p>
+              {folders.map((folder) => (
+                <button
+                  key={folder.id}
+                  type="button"
+                  onMouseEnter={() => handleHover(folder)}
+                  onClick={() => loadItems(folder)}
+                  className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
+                    activeFolder?.id === folder.id
+                      ? "bg-amber-50 font-semibold text-amber-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <svg className="h-3.5 w-3.5 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+                  </svg>
+                  <span>{folder.name}</span>
+                </button>
+              ))}
+            </aside>
+
+            {/* Область товаров */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3">
+                <p className="text-sm text-slate-500">
+                  {loadingItems ? "Загрузка..." : `${items.length} товаров`}
+                </p>
+                {activeFolder && (
+                  <Link
+                    href={`/catalog?folder=${activeFolder.id}`}
+                    onClick={onClose}
+                    className="text-xs font-semibold text-amber-600 hover:text-amber-800"
                   >
-                    {group.title}
-                  </button>
-                ))}
+                    Открыть все →
+                  </Link>
+                )}
+              </div>
+
+              <div className={`flex-1 overflow-y-auto p-6 transition-opacity duration-150 ${loadingItems ? "opacity-40" : "opacity-100"}`}>
+                {items.length === 0 && !loadingItems ? (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                    Товаров в этой группе нет
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {items.map((item) => {
+                      const price = item.salePrices?.[0]?.value;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-amber-200 hover:bg-amber-50"
+                        >
+                          <p className="text-sm font-semibold leading-snug text-slate-900">{item.name}</p>
+                          {item.article && <p className="mt-1 text-[11px] text-slate-400">Арт: {item.article}</p>}
+                          <div className="mt-3 flex items-center justify-between">
+                            {menuFormatPrice(price) ? (
+                              <p className="text-sm font-bold text-amber-600">{menuFormatPrice(price)}</p>
+                            ) : (
+                              <p className="text-xs text-slate-400">По запросу</p>
+                            )}
+                            <button type="button" className="rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-600">
+                              В корзину
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" role="list">
-              {activeGroup?.subgroups.map((subgroup) => (
-                <div key={`${activeGroup.id}-${subgroup.title}`} className="min-w-[220px] text-sm" role="listitem">
-                  <h4 className="text-base font-semibold text-slate-900">{subgroup.title}</h4>
-                  <ul className="mt-3 space-y-2 text-slate-600">
-                    {subgroup.items.map((item) => (
-                      <li key={item} className="transition hover:text-amber-600">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -668,7 +741,7 @@ const HeroCarousel = ({ onOpenCatalog }: { onOpenCatalog: () => void }) => {
 
   return (
     <section className="relative w-full overflow-hidden">
-      <div className="group relative h-[480px] w-full min-h-[480px] overflow-hidden bg-slate-900 md:h-[560px] lg:h-[620px]">
+      <div className="group relative h-[320px] w-full overflow-hidden bg-slate-900 sm:h-[420px] md:h-[520px] lg:h-[600px]">
         <Image
           src={activeSlide.image}
           alt={activeSlide.brand}
@@ -690,10 +763,10 @@ const HeroCarousel = ({ onOpenCatalog }: { onOpenCatalog: () => void }) => {
 
         <div className="absolute inset-0">
           <div className="mx-auto flex h-full w-full max-w-7xl items-center px-4">
-            <div className="hidden flex-1 flex-col items-center justify-center pl-[42%] text-white text-center md:flex lg:pl-[48%] xl:pl-[52%]">
+            <div className="flex flex-1 flex-col items-start justify-end pb-8 text-white md:items-center md:justify-center md:pl-[42%] md:text-center md:pb-0 lg:pl-[48%] xl:pl-[52%]">
               <div key={`cap-${activeIndex}`} className="fade-in-up">
                 <p className="text-xs uppercase tracking-[0.4em] text-white/70">{activeSlide.caption}</p>
-                <p className="mt-4 text-4xl font-semibold leading-tight">{activeSlide.brand}</p>
+                <p className="mt-2 text-2xl font-semibold leading-tight sm:mt-4 sm:text-3xl md:text-4xl">{activeSlide.brand}</p>
               </div>
               <div key={`high-${activeIndex}`} className="mt-4 flex flex-wrap justify-center gap-3 fade-in-up-200">
                 {activeSlide.highlights.map((item) => (
@@ -834,31 +907,37 @@ export default function Home() {
       {callbackOpen && <CallbackModal onClose={() => setCallbackOpen(false)} />}
       <CatalogMegaMenu open={catalogOpen} onClose={() => setCatalogOpen(false)} />
       <div className="sticky top-0 z-[80] border-b border-slate-100 bg-white shadow-lg shadow-slate-900/5">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-5 px-4">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-3 sm:gap-5 sm:px-4">
           <a href="/" className="flex shrink-0 items-center">
-            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-12 w-auto object-contain" />
+            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
           </a>
           <button
             type="button"
             onClick={() => setCatalogOpen(true)}
-            className="flex shrink-0 items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:text-amber-600"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold text-slate-800 transition hover:text-amber-600 sm:px-3"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
-            Каталог
+            <span className="hidden sm:inline">Каталог</span>
           </button>
-          <div className="relative flex-1">
+          <div className="relative hidden flex-1 sm:block">
             <input type="search" placeholder="Поиск" className="h-10 w-full border border-slate-100 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-amber-300 focus:bg-white" />
             <svg className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
           </div>
-          <div className="hidden min-w-32 text-center text-xs text-slate-500 md:block">
+          <div className="flex-1 sm:hidden" />
+          <div className="hidden min-w-32 text-center text-xs text-slate-500 lg:block">
             <a href={CONTACTS.phones[0].href} className="block font-semibold text-slate-900 hover:text-amber-600">{CONTACTS.phones[0].label}</a>
             <button type="button" onClick={() => setCallbackOpen(true)} className="uppercase tracking-wide hover:text-amber-600">заказать звонок</button>
           </div>
-          <button type="button" aria-label="Избранное" className="relative flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600">
+          <button type="button" aria-label="Поиск" className="flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600 sm:hidden">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+          </button>
+          <button type="button" aria-label="Избранное" className="relative hidden h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600 sm:flex">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 0 1 6.364 0L12 7.636l1.318-1.318a4.5 4.5 0 1 1 6.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 0 1 0-6.364z" />
             </svg>
@@ -999,9 +1078,9 @@ export default function Home() {
                 Весь список товара →
               </a>
             </div>
-            <div className="grid gap-4 lg:grid-cols-[480px_1fr]">
+            <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
               {/* Левое промо-фото */}
-              <a href="#" className="premium-card relative overflow-hidden rounded-2xl" style={{ minHeight: 840 }}>
+              <a href="#" className="premium-card relative hidden overflow-hidden rounded-2xl lg:block" style={{ minHeight: 480 }}>
                 <Image
                   src="/rem2.png"
                   alt="Акция"
@@ -1056,7 +1135,7 @@ export default function Home() {
                 Все наборы →
               </a>
             </div>
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {SETS.map((set) => (
                 <a
                   key={set.title}
