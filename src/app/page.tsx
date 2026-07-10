@@ -50,7 +50,8 @@ const FOOTER_COLUMNS: { title: string; items: LinkItem[] }[] = [
     title: "Документы",
     items: [
       { label: "Реквизиты", href: "https://zv.market/info/requisites/" },
-      { label: "Политика", href: "https://zv.market/include/licenses_detail.php" },
+      { label: "Политика конфиденциальности", href: "/privacy" },
+      { label: "Политика обработки персональных данных", href: "/personal-data" },
       { label: "Лицензии", href: "https://zv.market/company/licenses/" },
       { label: "Карьера", href: "https://zv.market/company/vakansii/" },
     ],
@@ -679,68 +680,6 @@ const HeroCarousel = ({ onOpenCatalog }: { onOpenCatalog: () => void }) => {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
 
-        {/* Верхняя панель: лого + каталог + поиск + иконки */}
-        <div className="absolute inset-x-0 top-0 z-40">
-          <div className="mx-auto flex max-w-7xl items-start gap-4 px-4 py-3">
-            {/* Логотип */}
-            <a href="/" className="logo-wrapper relative shrink-0">
-              <span aria-hidden className="logo-glow" />
-              <Image
-                src="/logo.png"
-                alt="ДомСтрой"
-                width={180}
-                height={180}
-                className="w-auto object-contain drop-shadow-lg logo-reveal"
-                style={{ height: 200 }}
-                priority
-              />
-            </a>
-            {/* Каталог */}
-            <button
-              type="button"
-              onClick={onOpenCatalog}
-              className="flex shrink-0 items-center gap-2 px-2 py-2.5 text-sm font-semibold text-white transition hover:text-white/70"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              Каталог
-            </button>
-            {/* Поиск */}
-            <div className="relative flex-1">
-              <input
-                type="search"
-                placeholder="Поиск..."
-                className="w-full rounded-none bg-white/90 py-2.5 pl-4 pr-12 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-amber-400"
-              />
-              <svg className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-              </svg>
-            </div>
-            {/* Избранное */}
-            <button
-              type="button"
-              aria-label="Избранное"
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center text-white transition hover:text-white/70"
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 0 1 6.364 0L12 7.636l1.318-1.318a4.5 4.5 0 1 1 6.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 0 1 0-6.364z" />
-              </svg>
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">0</span>
-            </button>
-            {/* Корзина */}
-            <button
-              type="button"
-              aria-label="Корзина"
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center text-white transition hover:text-white/70"
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m12-9l2 9M9 21h6" />
-              </svg>
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">0</span>
-            </button>
-          </div>
-        </div>
 
         <button type="button" onClick={goPrev} className={`${arrowButtonBase} -left-12 group-hover:left-4 md:group-hover:left-6`} aria-label="Предыдущий слайд">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
@@ -889,20 +828,12 @@ const CertificatesCarousel = () => {
 export default function Home() {
   const [callbackOpen, setCallbackOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
-  const [stickyVisible, setStickyVisible] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setStickyVisible(window.scrollY > 140);
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
       {callbackOpen && <CallbackModal onClose={() => setCallbackOpen(false)} />}
       <CatalogMegaMenu open={catalogOpen} onClose={() => setCatalogOpen(false)} />
-      <div className={`fixed inset-x-0 top-0 z-[80] border-b border-slate-100 bg-white/95 shadow-lg shadow-slate-900/5 backdrop-blur transition-all duration-300 ${stickyVisible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"}`}>
+      <div className="sticky top-0 z-[80] border-b border-slate-100 bg-white shadow-lg shadow-slate-900/5">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-5 px-4">
           <a href="/" className="flex shrink-0 items-center">
             <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-12 w-auto object-contain" />
@@ -927,6 +858,18 @@ export default function Home() {
             <a href={CONTACTS.phones[0].href} className="block font-semibold text-slate-900 hover:text-amber-600">{CONTACTS.phones[0].label}</a>
             <button type="button" onClick={() => setCallbackOpen(true)} className="uppercase tracking-wide hover:text-amber-600">заказать звонок</button>
           </div>
+          <button type="button" aria-label="Избранное" className="relative flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 0 1 6.364 0L12 7.636l1.318-1.318a4.5 4.5 0 1 1 6.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 0 1 0-6.364z" />
+            </svg>
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">0</span>
+          </button>
+          <button type="button" aria-label="Корзина" className="relative flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m12-9l2 9M9 21h6" />
+            </svg>
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">0</span>
+          </button>
           <Link href="/login" className="flex h-10 w-10 items-center justify-center text-slate-500 transition hover:text-amber-600" aria-label="Войти">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0zM4.501 20.118a7.5 7.5 0 0 1 14.998 0" />
@@ -935,7 +878,7 @@ export default function Home() {
         </div>
       </div>
 
-      <header className="bg-white text-slate-800 border-b border-slate-100">
+      <header className="hidden bg-white text-slate-800 border-b border-slate-100">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2 text-xs md:text-sm">
           <div className="flex flex-wrap items-center gap-4">
             <a href={CONTACTS.phones[0].href} className="font-semibold tracking-wide hover:text-amber-500">

@@ -125,7 +125,8 @@ export default function BrandsPage() {
                 title: "Документы",
                 items: [
                   { label: "Реквизиты", href: "https://zv.market/info/requisites/" },
-                  { label: "Политика", href: "https://zv.market/include/licenses_detail.php" },
+                  { label: "Политика конфиденциальности", href: "/privacy" },
+                  { label: "Политика обработки персональных данных", href: "/personal-data" },
                   { label: "Лицензии", href: "https://zv.market/company/licenses/" },
                   { label: "Карьера", href: "https://zv.market/company/vakansii/" },
                 ],
