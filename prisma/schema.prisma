@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -16,6 +21,7 @@ model User {
   phone         String?
   smsPhone      String?
   image         String?
+  role          Role      @default(USER)
 
   accounts      Account[]
   sessions      Session[]
@@ -112,4 +118,54 @@ model Favorite {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
+}
+
+enum BannerType {
+  BANNER
+  PROMO
+}
+
+model Banner {
+  id        String     @id @default(cuid())
+  type      BannerType @default(BANNER)
+  title     String
+  subtitle  String?
+  image     String?
+  link      String?
+  active    Boolean    @default(true)
+  sortOrder Int        @default(0)
+  startsAt  DateTime?
+  endsAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StaticPage {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  content         String   @db.Text
+  published       Boolean  @default(true)
+  seoTitle        String?
+  seoDescription  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum RedirectType {
+  PERMANENT
+  TEMPORARY
+}
+
+model Redirect {
+  id         String       @id @default(cuid())
+  fromPath   String       @unique
+  toPath     String
+  type       RedirectType @default(PERMANENT)
+  active     Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

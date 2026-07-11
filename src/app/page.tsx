@@ -742,15 +742,20 @@ const HeroCarousel = ({ onOpenCatalog }: { onOpenCatalog: () => void }) => {
   return (
     <section className="relative w-full overflow-hidden">
       <div className="group relative h-[320px] w-full overflow-hidden bg-slate-900 sm:h-[420px] md:h-[520px] lg:h-[600px]">
-        <Image
-          src={activeSlide.image}
-          alt={activeSlide.brand}
-          fill
-          priority
-          quality={100}
-          sizes="100vw"
-          className="object-cover"
-        />
+        {HERO_SLIDES.map((slide, idx) => (
+          <Image
+            key={slide.id}
+            src={slide.image}
+            alt={slide.brand}
+            fill
+            priority={idx === 0}
+            quality={100}
+            sizes="100vw"
+            className={`object-cover transition-opacity duration-1000 ease-in-out ${
+              idx === activeIndex ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
 
 
