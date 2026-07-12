@@ -1,52 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
+import SiteFooter from "@/components/SiteFooter";
 
 const CERTIFICATES = [
   { id: 1, title: "Сертификат соответствия", image: "/sertificat/sert1.png" },
   { id: 2, title: "Лицензия на поставку", image: "/sertificat/sert2.png" },
-  { id: 3, title: "Партнёрский статус", image: "/sertificat/sert3.png" },
+  { id: 3, title: "Партнерский статус", image: "/sertificat/sert3.png" },
   { id: 4, title: "Сертификат качества", image: "/sertificat/sert4.png" },
   { id: 5, title: "Экологическая безопасность", image: "/sertificat/sert5.png" },
   { id: 6, title: "Технический допуск", image: "/sertificat/sert6.png" },
-];
-
-const FOOTER_COLUMNS = [
-  {
-    title: "Контакты",
-    items: [
-      { label: "Контакты", href: "https://zv.market/contacts/" },
-      { label: "Прайс-лист", href: "https://zv.market/price.xlsx" },
-      { label: "Онлайн-трансляция", href: "https://zv.market/webcams/" },
-    ],
-  },
-  {
-    title: "Услуги",
-    items: [
-      { label: "Доставка", href: "https://zv.market/services/dostavka/" },
-      { label: "Погрузочные работы", href: "https://zv.market/services/pogruzochnye-raboty/" },
-      { label: "Колеровка", href: "https://zv.market/services/kolerovka/" },
-      { label: "Кредитование", href: "https://zv.market/services/kreditovanie/" },
-    ],
-  },
-  {
-    title: "Информация",
-    items: [
-      { label: "Как купить", href: "https://zv.market/help/" },
-      { label: "Вопрос-ответ", href: "https://zv.market/info/faq/" },
-      { label: "Условия оплаты", href: "https://zv.market/help/payment/" },
-      { label: "Гарантия", href: "https://zv.market/help/warranty/" },
-    ],
-  },
-  {
-    title: "Документы",
-    items: [
-      { label: "Реквизиты", href: "https://zv.market/info/requisites/" },
-      { label: "Политика конфиденциальности", href: "/privacy" },
-      { label: "Политика обработки персональных данных", href: "/personal-data" },
-      { label: "Лицензии", href: "https://zv.market/company/licenses/" },
-      { label: "Карьера", href: "https://zv.market/company/vakansii/" },
-    ],
-  },
 ];
 
 export default function CertificatesPage() {
@@ -90,40 +52,7 @@ export default function CertificatesPage() {
 
       </main>
 
-      <footer className="bg-[#f0ebe3] py-12 text-slate-900">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {FOOTER_COLUMNS.map((column) => (
-              <div key={column.title}>
-                <p className="text-xs uppercase tracking-[0.4em] text-amber-600/80">{column.title}</p>
-                <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                  {column.items.map((item) => (
-                    <li key={item.label}>
-                      <a href={item.href} className="hover:text-amber-600" target="_blank" rel="noreferrer">
-                        {item.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="mt-10 flex flex-col gap-2 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
-            <div>© {new Date().getFullYear()} ДомСтрой — комплексные поставки строительных материалов</div>
-            <div className="flex flex-wrap items-center gap-3">
-              <a href="tel:88002507626" className="hover:text-amber-600">
-                8 800 250 76 26
-              </a>
-              <a href="tel:84997025545" className="hover:text-amber-600">
-                8 499 702 55 45
-              </a>
-              <a href="mailto:info@domstroy.market" className="hover:text-amber-600">
-                info@domstroy.market
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "buildMarket — витрина стройматериалов",
-  description: "Стартовая страница с блоками zv.market: каталог, наборы, бренды и футер",
+  description: "Стартовая страница ДомСтрой: каталог, наборы, бренды и футер",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",

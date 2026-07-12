@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { LOOKBOOKS } from "@/lib/lookbooks";
+import SiteFooter from "@/components/SiteFooter";
 
 type LinkItem = { label: string; href: string };
 
@@ -11,166 +13,22 @@ const CONTACTS = {
     { label: "8 499 702 55 45", href: "tel:84997025545" },
     { label: "8 800 250 76 26", href: "tel:88002507626", note: "Звонок бесплатный" },
   ],
-  email: { label: "info@zv.market", href: "mailto:info@zv.market" },
+  email: { label: "info@domstroy.market", href: "mailto:info@domstroy.market" },
 };
 
 const SOCIAL_LINKS: LinkItem[] = [
-  { label: "ВКонтакте", href: "https://vk.com/zv.market" },
-  { label: "Telegram", href: "https://t.me/zvmarketdmd" },
-];
-
-const FOOTER_COLUMNS: { title: string; items: LinkItem[] }[] = [
-  {
-    title: "Контакты",
-    items: [
-      { label: "Контакты", href: "https://zv.market/contacts/" },
-      { label: "Прайс-лист", href: "https://zv.market/price.xlsx" },
-      { label: "Онлайн-трансляция", href: "https://zv.market/webcams/" },
-    ],
-  },
-  {
-    title: "Услуги",
-    items: [
-      { label: "Доставка", href: "https://zv.market/services/dostavka/" },
-      { label: "Погрузочные работы", href: "https://zv.market/services/pogruzochnye-raboty/" },
-      { label: "Колеровка", href: "https://zv.market/services/kolerovka/" },
-      { label: "Кредитование", href: "https://zv.market/services/kreditovanie/" },
-    ],
-  },
-  {
-    title: "Информация",
-    items: [
-      { label: "Как купить", href: "https://zv.market/help/" },
-      { label: "Вопрос-ответ", href: "https://zv.market/info/faq/" },
-      { label: "Условия оплаты", href: "https://zv.market/help/payment/" },
-      { label: "Гарантия", href: "https://zv.market/help/warranty/" },
-    ],
-  },
-  {
-    title: "Документы",
-    items: [
-      { label: "Реквизиты", href: "https://zv.market/info/requisites/" },
-      { label: "Политика конфиденциальности", href: "/privacy" },
-      { label: "Политика обработки персональных данных", href: "/personal-data" },
-      { label: "Лицензии", href: "https://zv.market/company/licenses/" },
-      { label: "Карьера", href: "https://zv.market/company/vakansii/" },
-    ],
-  },
+  { label: "ВКонтакте", href: "https://vk.ru/domstroy_market" },
+  { label: "Telegram", href: "https://t.me/domstroy_market" },
 ];
 
 const QUICK_LINKS: LinkItem[] = [
-  { label: "Акция дня", href: "https://zv.market/product-day/" },
+  { label: "Акция дня", href: "/promo" },
 ];
 
 const HEADER_ACTIONS = [
   { label: "Войти", sub: "личный кабинет" },
   { label: "Избранное", sub: "0 товаров" },
   { label: "Корзина", sub: "0 ₽" },
-];
-
-type CategoryGroup = { title: string; items: LinkItem[] };
-type CategoryCard = { title: string; caption: string; groups: CategoryGroup[] };
-
-const CATEGORIES: CategoryCard[] = [
-  {
-    title: "Строительные материалы",
-    caption: "Сетки, арматура, кровля, ЖБИ",
-    groups: [
-      {
-        title: "Каркас и металлопрокат",
-        items: [
-          { label: "Сетки металлические", href: "https://zv.market/catalog/stroitelnye-materialy/setki/metallicheskie/" },
-          { label: "Арматура композитная", href: "https://zv.market/catalog/metalloprokat/armatura/kompozitnaya/" },
-          { label: "Швеллер", href: "https://zv.market/catalog/metalloprokat/shveller/" },
-          { label: "Профильная труба", href: "https://zv.market/catalog/metalloprokat/profilnaya-truba/" },
-        ],
-      },
-      {
-        title: "Кровля и фасады",
-        items: [
-          { label: "Металлическая кровля", href: "https://zv.market/catalog/stroitelnye-materialy/krovelnye-materialy/metallicheskaya-krovlya/" },
-          { label: "Ондулин", href: "https://zv.market/catalog/stroitelnye-materialy/krovelnye-materialy/ondulin/" },
-          { label: "Поликарбонат", href: "https://zv.market/catalog/stroitelnye-materialy/krovelnye-materialy/polikarbonat/" },
-          { label: "Вентиляция кровли", href: "https://zv.market/catalog/stroitelnye-materialy/krovelnye-materialy/ventilyatsiya-dlya-krovli/" },
-        ],
-      },
-      {
-        title: "Основания и ЖБИ",
-        items: [
-          { label: "Сухие смеси", href: "https://zv.market/catalog/stroitelnye-materialy/sukhie-stroitelnye-smesi/" },
-          { label: "Тротуарная плитка", href: "https://zv.market/catalog/stroitelnye-materialy/trotuarnye-elementy/trotuarnaya-plitka/" },
-          { label: "Бетонные кольца", href: "https://zv.market/catalog/stroitelnye-materialy/zhbi/betonnye-koltsa/" },
-          { label: "Плоский шифер", href: "https://zv.market/catalog/stroitelnye-materialy/asbestotekhnicheskie-izdeliya/" },
-        ],
-      },
-    ],
-  },
-  {
-    title: "Сантехника и инженерка",
-    caption: "Инженерные системы, насосы, водоочистка",
-    groups: [
-      {
-        title: "Инженерная сантехника",
-        items: [
-          { label: "Люк сантехнический", href: "https://zv.market/catalog/santekhnika/inzhenernaya-santekhnika/lyuk-santekhnicheskiy/" },
-          { label: "Герметизация соединений", href: "https://zv.market/catalog/santekhnika/inzhenernaya-santekhnika/germetizatsiya-rezbovykh-i-plastikovykh-soedineniy/" },
-          { label: "Комплектующие к унитазу", href: "https://zv.market/catalog/santekhnika/inzhenernaya-santekhnika/komplektuyushchie-k-unitazu/" },
-          { label: "Комплектующие к ванне", href: "https://zv.market/catalog/santekhnika/inzhenernaya-santekhnika/komplektuyushchie-k-vanne/" },
-        ],
-      },
-      {
-        title: "Насосное оборудование",
-        items: [
-          { label: "Скважинные насосы", href: "https://zv.market/catalog/santekhnika/nasosnoe-oborudovanie/skvazhinnye-nasosy/" },
-          { label: "Дренажные насосы", href: "https://zv.market/catalog/santekhnika/nasosnoe-oborudovanie/drenazhnye-nasosy/" },
-          { label: "Циркуляционные насосы", href: "https://zv.market/catalog/santekhnika/nasosnoe-oborudovanie/tsirkulyatsionnye-nasosy/" },
-          { label: "Насосные станции", href: "https://zv.market/catalog/santekhnika/nasosnoe-oborudovanie/nasosnye-stantsii/" },
-        ],
-      },
-      {
-        title: "Тепло и вода",
-        items: [
-          { label: "Полипропиленовые трубы", href: "https://zv.market/catalog/santekhnika/truby-i-fitingi/polipropilen-pp/" },
-          { label: "Трубы ПНД", href: "https://zv.market/catalog/santekhnika/truby-i-fitingi/polietilen-nizkogo-davleniya-pnd/" },
-          { label: "Счетчики воды", href: "https://zv.market/catalog/santekhnika/kip/schyotchiki-dlya-vody/" },
-          { label: "Фильтры для воды", href: "https://zv.market/catalog/santekhnika/vodoochistka/filtry-dlya-vody/" },
-        ],
-      },
-    ],
-  },
-  {
-    title: "Электрика и инструменты",
-    caption: "Кабель, свет, измерительный инструмент",
-    groups: [
-      {
-        title: "Электромонтаж",
-        items: [
-          { label: "Кабель ВВГнг", href: "https://zv.market/catalog/elektrika/kabelnaya-produktsiya/kabel-vvgng/" },
-          { label: "Автоматические выключатели", href: "https://zv.market/catalog/elektrika/modulnoe-oborudovanie/avtomaticheskie-vyklyuchateli/" },
-          { label: "Электроустановочные изделия", href: "https://zv.market/catalog/elektrika/elektroustanovochnye-izdeliya/" },
-          { label: "Комплекты заземления", href: "https://zv.market/catalog/elektrika/komplekty-zazemleniya/" },
-        ],
-      },
-      {
-        title: "Инструменты",
-        items: [
-          { label: "Лазерные уровни", href: "https://zv.market/catalog/instrumenty/izmeritelnyy-i-razmetochniy-instrument/lazernye-urovni/" },
-          { label: "Рулетки", href: "https://zv.market/catalog/instrumenty/izmeritelnyy-i-razmetochniy-instrument/ruletki/" },
-          { label: "Строительные пылесосы", href: "https://zv.market/catalog/instrumenty/stroitelnye-pylesosy/" },
-          { label: "Технические светильники", href: "https://zv.market/catalog/stroitelnye-materialy/stroitelnoe-oborudovanie/tekhnicheskie-svetilniki/" },
-        ],
-      },
-      {
-        title: "Свет и питание",
-        items: [
-          { label: "Светильники", href: "https://zv.market/catalog/elektrika/svetotekhnika/svetilniki/" },
-          { label: "Источники питания", href: "https://zv.market/catalog/elektrika/svetotekhnika/istochniki-pitaniya/" },
-          { label: "Прожекторы", href: "https://zv.market/catalog/elektrika/svetotekhnika/prozhektory/" },
-          { label: "Датчики движения", href: "https://zv.market/catalog/elektrika/svetotekhnika/datchiki-dvizheniya/" },
-        ],
-      },
-    ],
-  },
 ];
 
 type CatalogGroup = {
@@ -323,32 +181,12 @@ const CATALOG_GROUPS: CatalogGroup[] = [
   },
 ];
 
-const SETS = [
-  {
-    title: "Доборные элементы для сайдинга",
-    href: "https://zv.market/lookbooks/dobornye-elementy-dlya-saydinga/",
-    accent: "Фасадное решение",
-    image: "/card/card4.png",
-  },
-  {
-    title: "Комплектующие для водосточной системы",
-    href: "https://zv.market/lookbooks/komplektuyushchie-dlya-vodostochnoy-sistemy/",
-    accent: "Водосточная система",
-    image: "/card/card3.png",
-  },
-  {
-    title: "Комплектующие для подвесного потолка",
-    href: "https://zv.market/lookbooks/komplektuyushchie-dlya-podvesnogo-potolka/",
-    accent: "Потолки",
-    image: "/card/card2.png",
-  },
-  {
-    title: "Комплектующие для потолка из гипсокартона",
-    href: "https://zv.market/lookbooks/materialy-dlya-potolka-iz-gipsokartona/",
-    accent: "Работы с ГКЛ",
-    image: "/card/card1.png",
-  },
-];
+const SETS = LOOKBOOKS.map((lookbook) => ({
+  title: lookbook.title,
+  href: `/lookbooks/${lookbook.slug}`,
+  accent: lookbook.accent,
+  image: lookbook.image,
+}));
 
 const BRAND_LINKS: LinkItem[] = [
   { label: "Все бренды", href: "/brands" },
@@ -380,20 +218,27 @@ const CERT_PLACEHOLDERS = [
 const HERO_SLIDES = [
   {
     id: 1,
+    brand: "ЭЛЕКТРОИНСТРУМЕНТЫ",
+    caption: "Прямые поставки с Китая",
+    image: "/banner4.png",
+    highlights: ["Fengbao", "Edon", "Redbo"],
+  },
+  {
+    id: 2,
     brand: "ОСНОВИТ",
     caption: "Строй основательно",
     image: "/car13.png",
     highlights: ["Сухие смеси", "Грунтовки", "Монтажные растворы"],
   },
   {
-    id: 2,
+    id: 3,
     brand: "ТЕХНОНИКОЛЬ",
     caption: "Доставка комплектов под ключ",
     image: "/car2.png",
     highlights: ["Доставим за 24 часа", "Самовывоз со склада", "Онлайн отслеживание"],
   },
   {
-    id: 3,
+    id: 4,
     brand: "KNAUF",
     caption: "Инженерные решения для сантехники",
     image: "/car3.png",
@@ -1023,35 +868,33 @@ export default function Home() {
               {[
                 {
                   label: "РАСПИЛ\nПОГРУЗКА\nКОЛЕРОВКА",
-                  href: "https://zv.market/services/",
+                  href: "/services",
                   image: "/podcarus/podcarus1.png",
                 },
                 {
                   label: "ДОСТАВКА",
-                  href: "https://zv.market/services/dostavka/",
+                  href: "/services/dostavka",
                   image: "/podcarus/podcarus5.png",
                 },
                 {
                   label: "НАЛИЧНЫМИ\nБЕЗНАЛИЧНЫМИ\nКРЕДИТ",
-                  href: "https://zv.market/help/payment/",
+                  href: "/help/payment",
                   image: "/podcarus/podcarus2.png",
                 },
                 {
                   label: "ВАШЕ\nДОВЕРИЕ —\nНАША РАБОТА",
-                  href: "https://zv.market/company/",
+                  href: "/company",
                   image: "/podcarus/podcarus3.png",
                 },
                 {
                   label: "БОЛЕЕ 40 000\nНАИМЕНОВАНИЙ\nТОВАРОВ",
-                  href: "https://zv.market/catalog/",
+                  href: "/catalog",
                   image: "/podcarus/podcarus4.png",
                 },
               ].map((card) => (
-                <a
+                <Link
                   key={card.label}
                   href={card.href}
-                  target="_blank"
-                  rel="noreferrer"
                   className="group premium-card relative overflow-hidden rounded-xl shadow-sm"
                   style={{ aspectRatio: "1.54" }}
                 >
@@ -1068,7 +911,7 @@ export default function Home() {
                       {card.label}
                     </p>
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -1131,22 +974,18 @@ export default function Home() {
           <div className={CONTENT_CONTAINER}>
             <div className="mb-6 flex items-center justify-between">
               <SectionTitle title="Наборы" subtitle="lookbooks" />
-              <a
-                href="https://zv.market/lookbooks/"
+              <Link
+                href="/lookbooks"
                 className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-600 transition hover:text-slate-900"
-                target="_blank"
-                rel="noreferrer"
               >
                 Все наборы →
-              </a>
+              </Link>
             </div>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {SETS.map((set) => (
-                <a
+                <Link
                   key={set.title}
                   href={set.href}
-                  target="_blank"
-                  rel="noreferrer"
                   className="group premium-card relative overflow-hidden rounded-2xl shadow-[0_20px_45px_rgba(0,0,0,0.18)] transition hover:-translate-y-1"
                   style={{
                     backgroundImage: `url(${set.image})`,
@@ -1161,7 +1000,7 @@ export default function Home() {
                     <p className="text-xs uppercase tracking-[0.4em] text-white/70">{set.accent}</p>
                     <h3 className="mt-2 text-2xl font-semibold leading-snug">{set.title}</h3>
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -1268,40 +1107,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="bg-[#f0ebe3] py-12 text-slate-900">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {FOOTER_COLUMNS.map((column) => (
-              <div key={column.title}>
-                <p className="text-xs uppercase tracking-[0.4em] text-amber-600/80">{column.title}</p>
-                <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                  {column.items.map((item) => (
-                    <li key={item.label}>
-                      <a href={item.href} className="hover:text-amber-600" target="_blank" rel="noreferrer">
-                        {item.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="mt-10 flex flex-col gap-2 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
-            <div>© {new Date().getFullYear()} ДомСтрой — комплексные поставки строительных материалов</div>
-            <div className="flex flex-wrap items-center gap-3">
-              <a href="tel:88002507626" className="hover:text-amber-600">
-                8 800 250 76 26
-              </a>
-              <a href="tel:84997025545" className="hover:text-amber-600">
-                8 499 702 55 45
-              </a>
-              <a href="mailto:info@domstroy.market" className="hover:text-amber-600">
-                info@domstroy.market
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
