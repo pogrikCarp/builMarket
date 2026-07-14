@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import CartButton from "@/components/cart/CartButton";
 import { LOOKBOOKS } from "@/lib/lookbooks";
 import SiteFooter from "@/components/SiteFooter";
 
@@ -31,156 +32,6 @@ const HEADER_ACTIONS = [
   { label: "Корзина", sub: "0 ₽" },
 ];
 
-type CatalogGroup = {
-  id: string;
-  title: string;
-  description?: string;
-  moyskladFolderId?: string;
-  subgroups: {
-    title: string;
-    items: string[];
-    moyskladFolderId?: string;
-  }[];
-};
-
-const CATALOG_GROUPS: CatalogGroup[] = [
-  {
-    id: "construction",
-    title: "Строительные материалы",
-    description: "Сухие смеси, растворы, бетон",
-    moyskladFolderId: "moysklad-root-construction",
-    subgroups: [
-      {
-        title: "Сухие строительные смеси",
-        moyskladFolderId: "drymix",
-        items: [
-          "Штукатурки",
-          "Шпаклёвки",
-          "Кладочные смеси",
-          "Самонивелирующиеся полы",
-          "Клеи для плитки",
-        ],
-      },
-      {
-        title: "ЖБИ и бетон",
-        items: [
-          "Бетонные кольца",
-          "Лотки",
-          "Перемычки",
-          "Плиты перекрытия",
-          "Фундаменты",
-        ],
-      },
-      {
-        title: "Сопутствующие материалы",
-        items: [
-          "Грунтовки",
-          "Гидроизоляция",
-          "Добавки",
-          "Армирующие сетки",
-        ],
-      },
-    ],
-  },
-  {
-    id: "engineering",
-    title: "Инженерные системы",
-    description: "Отопление, сантехника, вентиляция",
-    subgroups: [
-      {
-        title: "Сантехника",
-        items: [
-          "Трубы и фитинги",
-          "Смесители",
-          "Инженерная сантехника",
-          "Системы фильтрации",
-        ],
-      },
-      {
-        title: "Отопление",
-        items: [
-          "Котлы",
-          "Радиаторы",
-          "Тёплый пол",
-          "Коллекторы",
-        ],
-      },
-      {
-        title: "Вентиляция",
-        items: [
-          "Воздуховоды",
-          "Вентиляторы",
-          "Рекуператоры",
-        ],
-      },
-    ],
-  },
-  {
-    id: "finishing",
-    title: "Отделочные материалы",
-    description: "Фасады, интерьер, краски",
-    subgroups: [
-      {
-        title: "Фасадные решения",
-        items: [
-          "Сайдинг",
-          "Фасадные панели",
-          "Термопанели",
-        ],
-      },
-      {
-        title: "Интерьер",
-        items: [
-          "Гипсокартон",
-          "Потолочные системы",
-          "Декоративная штукатурка",
-          "Напольные покрытия",
-        ],
-      },
-      {
-        title: "Лакокрасочные материалы",
-        items: [
-          "Краски interior",
-          "Краски exterior",
-          "Эмали",
-          "Пропитки",
-        ],
-      },
-    ],
-  },
-  {
-    id: "logistics",
-    title: "Инструмент и логистика",
-    description: "Инструмент, техника, СИЗ",
-    subgroups: [
-      {
-        title: "Инструмент",
-        items: [
-          "Электроинструмент",
-          "Ручной инструмент",
-          "Расходные материалы",
-        ],
-      },
-      {
-        title: "Спецодежда и СИЗ",
-        items: [
-          "Перчатки",
-          "Каски",
-          "Защитные очки",
-        ],
-      },
-      {
-        title: "Логистика",
-        items: [
-          "Погрузочная техника",
-          "Грузовые услуги",
-          "Аренда складов",
-        ],
-      },
-    ],
-  },
-];
-
 const SETS = LOOKBOOKS.map((lookbook) => ({
   title: lookbook.title,
   href: `/lookbooks/${lookbook.slug}`,
@@ -194,16 +45,16 @@ const BRAND_LINKS: LinkItem[] = [
 ];
 
 const BRANDS: { name: string; logo: string }[] = [
-  { name: "Бренд 1", logo: "/comp/comp1.jpg" },
-  { name: "Бренд 2", logo: "/comp/comp2.jpg" },
-  { name: "Бренд 3", logo: "/comp/comp3.png" },
-  { name: "Бренд 4", logo: "/comp/comp4.jpg" },
-  { name: "Бренд 5", logo: "/comp/comp5.png" },
-  { name: "Бренд 6", logo: "/comp/comp6.jpg" },
-  { name: "Бренд 7", logo: "/comp/comp7.jpg" },
-  { name: "Бренд 8", logo: "/comp/comp8.jpg" },
-  { name: "Бренд 9", logo: "/comp/comp9.webp" },
-  { name: "Бренд 10", logo: "/comp/comp10.jpg" },
+  { name: "Fengbao", logo: "/comp/1fengbao.webp" },
+  { name: "Edon", logo: "/comp/edon.jpg" },
+  { name: "Redbo", logo: "/comp/redbo.jpg" },
+  { name: "Бренд 4", logo: "/comp/comp1.jpg" },
+  { name: "Бренд 5", logo: "/comp/comp2.jpg" },
+  { name: "Бренд 6", logo: "/comp/comp3.png" },
+  { name: "Бренд 7", logo: "/comp/comp4.jpg" },
+  { name: "Бренд 8", logo: "/comp/comp5.png" },
+  { name: "Бренд 9", logo: "/comp/comp6.jpg" },
+  { name: "Бренд 10", logo: "/comp/comp7.jpg" },
 ];
 
 const CERT_PLACEHOLDERS = [
@@ -387,32 +238,113 @@ const CallbackModal = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-type MsFolder = { id: string; name: string; meta: { href: string }; productFolder?: { meta: { href: string } } };
-type MsItem = { id: string; name: string; article?: string; salePrices?: { value: number }[] };
+type MsFolder = {
+  id: string;
+  name: string;
+  meta: { href: string };
+  pathName?: string;
+  productFolder?: { meta: { href: string } };
+};
 
-function menuFormatPrice(value?: number) {
-  if (!value) return null;
-  return (value / 100).toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 });
-}
+const splitPath = (value?: string) => {
+  if (!value) return [] as string[];
+  return value
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+};
+
+const getFolderSegments = (folder: MsFolder) => [...splitPath(folder.pathName), folder.name].filter(Boolean);
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\u0400-\u04FF]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "group";
+
+const getGroupNameFromFolder = (folder: MsFolder) => {
+  const segments = getFolderSegments(folder);
+  if (segments.length >= 2) return segments[segments.length - 2];
+  return segments[0] ?? folder.name;
+};
+
+type FolderGroup = {
+  id: string;
+  title: string;
+  rootFolders: MsFolder[];
+  subfolders: MsFolder[];
+};
+
+const getLeafName = (folder: MsFolder) => {
+  const segments = getFolderSegments(folder);
+  return segments[segments.length - 1] ?? folder.name;
+};
 
 const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const [folders, setFolders] = useState<MsFolder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
-  const [activeFolder, setActiveFolder] = useState<MsFolder | null>(null);
-  const [items, setItems] = useState<MsItem[]>([]);
-  const [loadingItems, setLoadingItems] = useState(false);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+
+  const leafFolders = useMemo(() => {
+    const parentHrefs = new Set(
+      folders
+        .map((folder) => folder.productFolder?.meta.href)
+        .filter((href): href is string => Boolean(href))
+    );
+    return folders.filter((folder) => !parentHrefs.has(folder.meta.href));
+  }, [folders]);
+
+  const groups = useMemo<FolderGroup[]>(() => {
+    if (!leafFolders.length) return [];
+    const map = new Map<string, FolderGroup>();
+    leafFolders.forEach((folder) => {
+      const groupName = getGroupNameFromFolder(folder);
+      const groupId = slugify(groupName);
+      if (!map.has(groupId)) {
+        map.set(groupId, {
+          id: groupId,
+          title: groupName,
+          rootFolders: [],
+          subfolders: [],
+        });
+      }
+      const entry = map.get(groupId)!;
+      const segments = getFolderSegments(folder);
+      if (segments.length <= 1) {
+        entry.rootFolders.push(folder);
+      } else {
+        entry.subfolders.push(folder);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title, "ru"));
+  }, [leafFolders]);
+
+  const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupId) ?? null, [groups, activeGroupId]);
+
+  const subgroupBuckets = useMemo(() => {
+    if (!activeGroup) return [] as { title: string; folders: MsFolder[] }[];
+    const foldersToShow = activeGroup.subfolders.length ? activeGroup.subfolders : activeGroup.rootFolders;
+    return foldersToShow
+      .slice()
+      .sort((a, b) => getLeafName(a).localeCompare(getLeafName(b), "ru"))
+      .map((folder) => ({ title: getLeafName(folder), folders: [folder] }));
+  }, [activeGroup]);
+
+  useEffect(() => {
+    if (!groups.length) return;
+    if (!activeGroupId || !groups.some((group) => group.id === activeGroupId)) {
+      setActiveGroupId(groups[0].id);
+    }
+  }, [groups, activeGroupId]);
 
   useEffect(() => {
     if (!open) return;
     setLoadingFolders(true);
     fetch("/api/moysklad/folders")
       .then((r) => r.json())
-      .then((data) => {
-        const rows: MsFolder[] = data.rows ?? [];
-        setFolders(rows);
-        if (rows.length) loadItems(rows[0]);
+      .then((foldersData) => {
+        setFolders(foldersData.rows ?? []);
       })
       .catch(() => {})
       .finally(() => setLoadingFolders(false));
@@ -425,28 +357,11 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  useEffect(() => () => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    if (abortRef.current) abortRef.current.abort();
-  }, []);
-
-  const loadItems = (folder: MsFolder) => {
-    if (abortRef.current) abortRef.current.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    setActiveFolder(folder);
-    setLoadingItems(true);
-    fetch(`/api/moysklad/by-folder?folderHref=${encodeURIComponent(folder.meta.href)}&limit=24`, { signal: ctrl.signal })
-      .then((r) => r.json())
-      .then((d) => setItems(d.rows ?? []))
-      .catch(() => {})
-      .finally(() => setLoadingItems(false));
+  const handleGroupSelect = (group: FolderGroup) => {
+    setActiveGroupId(group.id);
   };
 
-  const handleHover = (folder: MsFolder) => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = setTimeout(() => loadItems(folder), 150);
-  };
+  const getFolderHref = (folder: MsFolder) => `/catalog?folder=${encodeURIComponent(folder.id)}`;
 
   if (!open) return null;
 
@@ -460,10 +375,10 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.4em] text-amber-500">Каталог</p>
-            {activeFolder && (
+            {activeGroup && (
               <>
                 <span className="text-slate-300">/</span>
-                <p className="text-sm font-semibold text-slate-800">{activeFolder.name}</p>
+                <p className="text-sm font-semibold text-slate-800">{activeGroup.title}</p>
               </>
             )}
           </div>
@@ -479,76 +394,88 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
         ) : (
           <div className="flex flex-1 overflow-hidden">
             {/* Sidebar групп */}
-            <aside className="w-40 shrink-0 overflow-y-auto border-r border-slate-100 py-3 sm:w-52 md:w-56">
-              <p className="px-4 pb-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-400">Группы товаров</p>
-              {folders.map((folder) => (
+            <aside className="w-48 shrink-0 overflow-y-auto border-r border-slate-100 py-4 sm:w-56 md:w-60">
+              <p className="px-5 pb-3 text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-400">Группы товаров</p>
+              {groups.map((group) => (
                 <button
-                  key={folder.id}
+                  key={group.id}
                   type="button"
-                  onMouseEnter={() => handleHover(folder)}
-                  onClick={() => loadItems(folder)}
-                  className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
-                    activeFolder?.id === folder.id
+                  onClick={() => handleGroupSelect(group)}
+                  className={`flex w-full items-center gap-2 px-5 py-2.5 text-left text-sm transition ${
+                    activeGroupId === group.id
                       ? "bg-amber-50 font-semibold text-amber-700"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
-                  <svg className="h-3.5 w-3.5 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+                  <svg className="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
                   </svg>
-                  <span>{folder.name}</span>
+                  <span className="leading-tight">{group.title}</span>
                 </button>
               ))}
             </aside>
 
-            {/* Область товаров */}
+            {/* Область подгрупп и товаров */}
             <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3">
-                <p className="text-sm text-slate-500">
-                  {loadingItems ? "Загрузка..." : `${items.length} товаров`}
-                </p>
-                {activeFolder && (
-                  <Link
-                    href={`/catalog?folder=${activeFolder.id}`}
-                    onClick={onClose}
-                    className="text-xs font-semibold text-amber-600 hover:text-amber-800"
-                  >
-                    Открыть все →
-                  </Link>
-                )}
-              </div>
-
-              <div className={`flex-1 overflow-y-auto p-6 transition-opacity duration-150 ${loadingItems ? "opacity-40" : "opacity-100"}`}>
-                {items.length === 0 && !loadingItems ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                    Товаров в этой группе нет
+              <div className="border-b border-slate-100 px-6 py-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">Подгруппы</p>
+                    <h3 className="mt-2 text-xl font-semibold text-slate-900">{activeGroup?.title ?? "Каталог"}</h3>
                   </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {items.map((item) => {
-                      const price = item.salePrices?.[0]?.value;
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-amber-200 hover:bg-amber-50"
-                        >
-                          <p className="text-sm font-semibold leading-snug text-slate-900">{item.name}</p>
-                          {item.article && <p className="mt-1 text-[11px] text-slate-400">Арт: {item.article}</p>}
-                          <div className="mt-3 flex items-center justify-between">
-                            {menuFormatPrice(price) ? (
-                              <p className="text-sm font-bold text-amber-600">{menuFormatPrice(price)}</p>
-                            ) : (
-                              <p className="text-xs text-slate-400">По запросу</p>
-                            )}
-                            <button type="button" className="rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-600">
-                              В корзину
-                            </button>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href="/catalog"
+                      onClick={onClose}
+                      className="rounded-full border border-transparent bg-amber-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                    >
+                      Открыть каталог →
+                    </Link>
+                  </div>
+                </div>
+                <div className="mt-6 max-h-[calc(100vh-14rem)] overflow-y-auto pr-2">
+                  {subgroupBuckets.length ? (
+                    <div className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {subgroupBuckets.map((bucket) => {
+                        const uniqueFolders = bucket.folders.filter((folder, index, list) =>
+                          list.findIndex((entry) => getLeafName(entry) === getLeafName(folder)) === index
+                        );
+                        if (uniqueFolders.length === 1 && getLeafName(uniqueFolders[0]) === bucket.title) {
+                          const folder = uniqueFolders[0];
+                          return (
+                            <Link
+                              key={folder.id}
+                              href={getFolderHref(folder)}
+                              onClick={onClose}
+                              className="block text-base font-semibold leading-snug text-slate-900 transition hover:text-amber-600"
+                            >
+                              {bucket.title}
+                            </Link>
+                          );
+                        }
+                        return (
+                          <div key={bucket.title}>
+                            <p className="text-base font-semibold text-slate-900">{bucket.title}</p>
+                            <div className="mt-3 flex flex-col gap-2">
+                              {uniqueFolders.map((folder) => (
+                                <Link
+                                  key={folder.id}
+                                  href={getFolderHref(folder)}
+                                  onClick={onClose}
+                                  className="text-sm leading-snug text-slate-500 transition hover:text-amber-600"
+                                >
+                                  {getLeafName(folder)}
+                                </Link>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">Для этой группы пока нет подгрупп</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -567,7 +494,7 @@ const SectionTitle = ({ title, subtitle, className = "" }: { title: string; subt
 
 const CONTENT_CONTAINER = "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8";
 
-const HeroCarousel = ({ onOpenCatalog }: { onOpenCatalog: () => void }) => {
+const HeroCarousel = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeSlide = HERO_SLIDES[activeIndex];
 
@@ -750,27 +677,24 @@ const CertificatesCarousel = () => {
 
 export default function Home() {
   const [callbackOpen, setCallbackOpen] = useState(false);
-  const [catalogOpen, setCatalogOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
       {callbackOpen && <CallbackModal onClose={() => setCallbackOpen(false)} />}
-      <CatalogMegaMenu open={catalogOpen} onClose={() => setCatalogOpen(false)} />
       <div className="sticky top-0 z-[80] border-b border-slate-100 bg-white shadow-lg shadow-slate-900/5">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-3 sm:gap-5 sm:px-4">
           <a href="/" className="flex shrink-0 items-center">
             <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
           </a>
-          <button
-            type="button"
-            onClick={() => setCatalogOpen(true)}
+          <Link
+            href="/catalog"
             className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold text-slate-800 transition hover:text-amber-600 sm:px-3"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
             <span className="hidden sm:inline">Каталог</span>
-          </button>
+          </Link>
           <div className="relative hidden flex-1 sm:block">
             <input type="search" placeholder="Поиск" className="h-10 w-full border border-slate-100 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-amber-300 focus:bg-white" />
             <svg className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -793,12 +717,7 @@ export default function Home() {
             </svg>
             <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">0</span>
           </button>
-          <button type="button" aria-label="Корзина" className="relative flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m12-9l2 9M9 21h6" />
-            </svg>
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">0</span>
-          </button>
+          <CartButton />
           <Link href="/login" className="flex h-10 w-10 items-center justify-center text-slate-500 transition hover:text-amber-600" aria-label="Войти">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0zM4.501 20.118a7.5 7.5 0 0 1 14.998 0" />
@@ -859,7 +778,7 @@ export default function Home() {
       </header>
 
       <main className="space-y-12">
-        <HeroCarousel onOpenCatalog={() => setCatalogOpen(true)} />
+        <HeroCarousel />
 
         {/* 5 карточек-ссылок под каруселью */}
         <section className="section-surface py-8">
@@ -1058,7 +977,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {BRANDS.map((brand) => (
+              {BRANDS.map((brand, idx) => (
                 <div
                   key={brand.name}
                   className="group premium-card flex h-24 items-center justify-center rounded-xl border border-slate-100 bg-white px-4 shadow-sm transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg"
@@ -1066,9 +985,11 @@ export default function Home() {
                   <Image
                     src={brand.logo}
                     alt={`Логотип ${brand.name}`}
-                    width={160}
-                    height={64}
-                    className="max-h-14 w-auto max-w-full object-contain opacity-80 transition group-hover:opacity-100 group-hover:scale-105"
+                    width={idx === 0 ? 300 : 160}
+                    height={idx === 0 ? 96 : 64}
+                    className={`object-contain opacity-80 transition group-hover:opacity-100 group-hover:scale-105 ${
+                      idx === 0 ? "max-h-16 w-auto max-w-full" : "max-h-14 w-auto max-w-full"
+                    }`}
                     style={{ imageRendering: "auto" }}
                   />
                 </div>

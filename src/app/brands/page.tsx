@@ -3,18 +3,19 @@ import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 
 const BRANDS = [
-  { name: "Бренд 1", logo: "/comp/comp1.jpg" },
-  { name: "Бренд 2", logo: "/comp/comp2.jpg" },
-  { name: "Бренд 3", logo: "/comp/comp3.png" },
-  { name: "Бренд 4", logo: "/comp/comp4.jpg" },
-  { name: "Бренд 5", logo: "/comp/comp5.png" },
-  { name: "Бренд 6", logo: "/comp/comp6.jpg" },
-  { name: "Бренд 7", logo: "/comp/comp7.jpg" },
-  { name: "Бренд 8", logo: "/comp/comp8.jpg" },
-  { name: "Бренд 9", logo: "/comp/comp9.webp" },
-  { name: "Бренд 10", logo: "/comp/comp10.jpg" },
-  { name: "Бренд 11", logo: "/comp/comp1.jpg" },
-  { name: "Бренд 12", logo: "/comp/comp2.jpg" },
+  { name: "Fengbao", logo: "/comp/1fengbao.webp" },
+  { name: "Edon", logo: "/comp/edon.jpg" },
+  { name: "Redbo", logo: "/comp/redbo.jpg" },
+  { name: "Бренд 4", logo: "/comp/comp1.jpg" },
+  { name: "Бренд 5", logo: "/comp/comp2.jpg" },
+  { name: "Бренд 6", logo: "/comp/comp3.png" },
+  { name: "Бренд 7", logo: "/comp/comp4.jpg" },
+  { name: "Бренд 8", logo: "/comp/comp5.png" },
+  { name: "Бренд 9", logo: "/comp/comp6.jpg" },
+  { name: "Бренд 10", logo: "/comp/comp7.jpg" },
+  { name: "Бренд 11", logo: "/comp/comp8.jpg" },
+  { name: "Бренд 12", logo: "/comp/comp9.webp" },
+  { name: "Бренд 13", logo: "/comp/comp10.jpg" },
 ];
 
 const BRAND_NOTES = [

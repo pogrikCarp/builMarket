@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCart } from "@/components/cart/CartProvider";
 import type { MoyskladAssortmentItem, MoyskladProductFolder } from "@/lib/moysklad";
 
 function formatPrice(value?: number) {
@@ -12,17 +13,56 @@ function formatPrice(value?: number) {
   });
 }
 
+type FolderInfo = {
+  name?: string;
+  pathName?: string | null;
+  productFolder?: FolderInfo | null;
+};
+
+const splitFolderPath = (value?: string | null) =>
+  (value ?? "")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+const getFolderSegments = (folder?: FolderInfo | null) => {
+  if (!folder?.name) return splitFolderPath(folder?.pathName);
+  return [...splitFolderPath(folder.pathName), folder.name].filter(Boolean);
+};
+
+const getGroupLabel = (folder?: FolderInfo | null) => {
+  if (!folder) return undefined;
+  if (folder.productFolder?.name) return folder.productFolder.name;
+  const segments = getFolderSegments(folder);
+  if (segments.length >= 2) return segments[segments.length - 2];
+  return segments[0];
+};
+
+const getSubgroupLabel = (folder?: FolderInfo | null) => {
+  if (!folder) return undefined;
+  const segments = getFolderSegments(folder);
+  return segments[segments.length - 1];
+};
+
 type Props = {
   folders: MoyskladProductFolder[];
   initialItems: MoyskladAssortmentItem[];
+  initialFolderId?: string;
 };
 
-export default function CatalogBrowser({ folders, initialItems }: Props) {
-  const [activeFolder, setActiveFolder] = useState<MoyskladProductFolder | null>(null);
+export default function CatalogBrowser({ folders, initialItems, initialFolderId }: Props) {
+  const initialFolder = useMemo(
+    () => (initialFolderId ? folders.find((folder) => folder.id === initialFolderId) ?? null : null),
+    [folders, initialFolderId]
+  );
+  const [activeFolder, setActiveFolder] = useState<MoyskladProductFolder | null>(initialFolder);
+  const [allItems, setAllItems] = useState<MoyskladAssortmentItem[]>(initialFolder ? [] : initialItems);
   const [items, setItems] = useState<MoyskladAssortmentItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [addedItemId, setAddedItemId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { addItem } = useCart();
 
   const loadByFolder = useCallback(async (folder: MoyskladProductFolder) => {
     if (abortRef.current) abortRef.current.abort();
@@ -32,7 +72,7 @@ export default function CatalogBrowser({ folders, initialItems }: Props) {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/moysklad/by-folder?folderHref=${encodeURIComponent(folder.meta.href)}&limit=100`,
+        `/api/moysklad/by-folder?folderHref=${encodeURIComponent(folder.meta.href)}&limit=1000`,
         { signal: controller.signal }
       );
       if (!res.ok) throw new Error("Ошибка загрузки");
@@ -47,20 +87,29 @@ export default function CatalogBrowser({ folders, initialItems }: Props) {
     }
   }, []);
 
-  const handleFolderHover = (folder: MoyskladProductFolder) => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = setTimeout(() => {
-      setActiveFolder(folder);
-      loadByFolder(folder);
-    }, 180);
-  };
+  const loadAllItems = useCallback(async () => {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-  const handleFolderLeave = () => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-  };
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/moysklad/assortment?limit=1000`, { signal: controller.signal });
+      if (!res.ok) throw new Error("Ошибка загрузки");
+      const data = await res.json();
+      const rows = data.rows ?? [];
+      setAllItems(rows);
+      setItems(rows);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setItems([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleFolderClick = (folder: MoyskladProductFolder) => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
     setActiveFolder(folder);
     loadByFolder(folder);
   };
@@ -68,15 +117,28 @@ export default function CatalogBrowser({ folders, initialItems }: Props) {
   const handleShowAll = () => {
     if (abortRef.current) abortRef.current.abort();
     setActiveFolder(null);
-    setItems(initialItems);
+    if (allItems.length) {
+      setItems(allItems);
+      return;
+    }
+    loadAllItems();
   };
 
   useEffect(() => {
     return () => {
-      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
       if (abortRef.current) abortRef.current.abort();
     };
   }, []);
+
+  const handleAddToCart = (item: MoyskladAssortmentItem) => {
+    addItem(item);
+    setAddedItemId(item.id);
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => {
+      setAddedItemId((current) => (current === item.id ? null : current));
+    }, 1200);
+  };
 
   return (
     <div className="flex min-h-[400px] flex-col md:flex-row md:gap-0">
@@ -132,8 +194,6 @@ export default function CatalogBrowser({ folders, initialItems }: Props) {
               <li key={folder.id}>
                 <button
                   type="button"
-                  onMouseEnter={() => handleFolderHover(folder)}
-                  onMouseLeave={handleFolderLeave}
                   onClick={() => handleFolderClick(folder)}
                   className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
                     activeFolder?.id === folder.id
@@ -177,12 +237,17 @@ export default function CatalogBrowser({ folders, initialItems }: Props) {
         <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity duration-200 ${loading ? "opacity-50" : "opacity-100"}`}>
           {items.map((item) => {
             const price = item.salePrices?.[0]?.value;
+            const groupLabel = getGroupLabel(item.productFolder);
+            const subgroupLabel = getSubgroupLabel(item.productFolder);
             return (
               <div
                 key={item.id}
                 className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow-md"
               >
                 <div>
+                  {groupLabel && (
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{groupLabel}</p>
+                  )}
                   <p className="font-semibold leading-snug text-slate-900">{item.name}</p>
                   {item.article && (
                     <p className="mt-1 text-xs text-slate-400">Арт: {item.article}</p>
@@ -190,8 +255,8 @@ export default function CatalogBrowser({ folders, initialItems }: Props) {
                   {item.code && (
                     <p className="text-xs text-slate-400">Код: {item.code}</p>
                   )}
-                  {item.productFolder?.name && (
-                    <p className="mt-1 text-xs text-amber-600">{item.productFolder.name}</p>
+                  {subgroupLabel && (
+                    <p className="mt-1 text-xs font-semibold text-amber-600">{subgroupLabel}</p>
                   )}
                 </div>
                 <div className="mt-4 flex items-end justify-between">
@@ -207,9 +272,12 @@ export default function CatalogBrowser({ folders, initialItems }: Props) {
                   </div>
                   <button
                     type="button"
-                    className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
+                    onClick={() => handleAddToCart(item)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition ${
+                      addedItemId === item.id ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-500 hover:bg-amber-600"
+                    }`}
                   >
-                    В корзину
+                    {addedItemId === item.id ? "Добавлено" : "В корзину"}
                   </button>
                 </div>
               </div>

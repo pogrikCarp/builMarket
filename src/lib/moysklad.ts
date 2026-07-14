@@ -25,7 +25,7 @@ export type MoyskladProductFolder = {
   id: string;
   name: string;
   pathName?: string;
-  productFolder?: { meta: { href: string } };
+  productFolder?: { meta: { href: string; type?: string }; name?: string };
 };
 
 export type MoyskladProductFolderResponse = {
@@ -48,7 +48,12 @@ export type MoyskladAssortmentItem = {
   }[];
   quantity?: number;
   uom?: { name: string };
-  productFolder?: { meta: { href: string; type: string }; name?: string };
+  productFolder?: {
+    meta: { href: string; type: string };
+    name?: string;
+    pathName?: string;
+    productFolder?: { meta: { href: string; type: string }; name?: string };
+  };
 };
 
 export type MoyskladAssortmentResponse = {
@@ -85,6 +90,7 @@ export async function getAssortment(
   const params = new URLSearchParams();
   params.append("limit", String(limit));
   params.append("offset", String(offset));
+  params.append("expand", "productFolder,productFolder.productFolder");
   if (search) params.append("search", search);
 
   const url = buildUrl("/entity/assortment", params);
@@ -114,6 +120,7 @@ export async function getProductFolders(): Promise<MoyskladProductFolderResponse
   const params = new URLSearchParams();
   params.append("limit", "100");
   params.append("order", "name,asc");
+  params.append("expand", "productFolder");
   const url = buildUrl("/entity/productfolder", params);
   const res = await fetch(url, {
     headers: getAuthHeaders(),
@@ -134,6 +141,7 @@ export async function getAssortmentByFolder(
   params.append("limit", String(limit));
   params.append("offset", String(offset));
   params.append("filter", `productFolder=${folderHref}`);
+  params.append("expand", "productFolder,productFolder.productFolder");
   const url = buildUrl("/entity/assortment", params);
   const res = await fetch(url, {
     headers: getAuthHeaders(),

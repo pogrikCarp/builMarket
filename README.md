@@ -2,7 +2,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+First, run the development server (configured to use the more stable webpack dev server by default — Turbopack was causing CPU spikes on this project’s large client bundle). If you still want to try Turbopack, pass `--turbo` manually.
 
 ```bash
 npm run dev

@@ -1,29 +1,44 @@
 import Link from "next/link";
-import { getAssortment, getProductFolders } from "@/lib/moysklad";
+import Image from "next/image";
+import CartButton from "@/components/cart/CartButton";
+import { getAssortment, getAssortmentByFolder, getProductFolders } from "@/lib/moysklad";
 import CatalogBrowser from "@/components/CatalogBrowser";
 
-export default async function CatalogPage() {
-  const [foldersResult, itemsResult] = await Promise.allSettled([
-    getProductFolders(),
-    getAssortment(100, 0),
-  ]);
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ folder?: string }>;
+}) {
+  const params = await searchParams;
+  const initialFolderId = params?.folder;
 
-  const folders = foldersResult.status === "fulfilled" ? foldersResult.value.rows : [];
-  const initialItems = itemsResult.status === "fulfilled" ? itemsResult.value.rows : [];
-  const error =
-    foldersResult.status === "rejected" || itemsResult.status === "rejected"
-      ? "Ошибка загрузки данных из МойСклад"
-      : null;
+  const foldersResult = await getProductFolders();
+  const selectedFolder = initialFolderId
+    ? foldersResult.rows.find((folder) => folder.id === initialFolderId) ?? null
+    : null;
+
+  const itemsPromise = selectedFolder
+    ? getAssortmentByFolder(selectedFolder.meta.href, 1000, 0)
+    : getAssortment(1000, 0);
+
+  const itemsResult = await Promise.allSettled([itemsPromise]);
+
+  const folders = foldersResult.rows;
+  const initialItems = itemsResult[0].status === "fulfilled" ? itemsResult[0].value.rows : [];
+  const error = itemsResult[0].status === "rejected" ? "Ошибка загрузки данных из МойСклад" : null;
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
       <header className="border-b border-slate-100 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <Link href="/" className="text-xl font-bold text-slate-900">ДомСтрой</Link>
+          <Link href="/" className="flex shrink-0 items-center">
+            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
+          </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
             <Link href="/catalog" className="font-semibold text-amber-600">Каталог</Link>
             <Link href="/personal" className="text-slate-600 hover:text-slate-900">Кабинет</Link>
+            <CartButton variant="inline" />
           </nav>
         </div>
       </header>
@@ -39,7 +54,7 @@ export default async function CatalogPage() {
         )}
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
-          <CatalogBrowser folders={folders} initialItems={initialItems} />
+          <CatalogBrowser folders={folders} initialItems={initialItems} initialFolderId={initialFolderId} />
         </div>
       </main>
     </div>
