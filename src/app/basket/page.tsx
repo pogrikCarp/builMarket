@@ -33,17 +33,9 @@ export default function BasketPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Корзина</h1>
-            <p className="mt-2 text-sm text-slate-500">Проверьте состав заказа и измените количество товаров при необходимости.</p>
-          </div>
-          {items.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-right shadow-sm">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Итого</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{formatPrice(total)}</p>
-            </div>
-          )}
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold text-slate-900">Корзина</h1>
+          <p className="mt-2 text-sm text-slate-500">Проверьте состав заказа и измените количество товаров при необходимости.</p>
         </div>
 
         {items.length === 0 ? (
@@ -125,12 +117,12 @@ export default function BasketPage() {
                   <span className="text-xl font-bold text-slate-900">{formatPrice(total)}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                className="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              <Link
+                href="/order"
+                className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-500"
               >
                 Оформить заказ
-              </button>
+              </Link>
               <button
                 type="button"
                 onClick={clearCart}

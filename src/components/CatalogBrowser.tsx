@@ -59,10 +59,8 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId 
   const [allItems, setAllItems] = useState<MoyskladAssortmentItem[]>(initialFolder ? [] : initialItems);
   const [items, setItems] = useState<MoyskladAssortmentItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
-  const [addedItemId, setAddedItemId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { addItem } = useCart();
+  const { addItem, items: cartItems, setQuantity } = useCart();
 
   const loadByFolder = useCallback(async (folder: MoyskladProductFolder) => {
     if (abortRef.current) abortRef.current.abort();
@@ -126,18 +124,30 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId 
 
   useEffect(() => {
     return () => {
-      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
       if (abortRef.current) abortRef.current.abort();
     };
   }, []);
 
   const handleAddToCart = (item: MoyskladAssortmentItem) => {
     addItem(item);
-    setAddedItemId(item.id);
-    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
-    addedTimerRef.current = setTimeout(() => {
-      setAddedItemId((current) => (current === item.id ? null : current));
-    }, 1200);
+  };
+
+  const handleIncrease = (id: string, current: number) => {
+    setQuantity(id, current + 1);
+  };
+
+  const handleDecrease = (id: string, current: number) => {
+    if (current <= 1) {
+      setQuantity(id, 0);
+      return;
+    }
+    setQuantity(id, current - 1);
+  };
+
+  const handleQuantityInput = (id: string, value: string) => {
+    const parsed = Number(value.replace(/[^0-9]/g, ""));
+    if (Number.isNaN(parsed)) return;
+    setQuantity(id, Math.max(0, parsed));
   };
 
   return (
@@ -245,6 +255,17 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId 
                 className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow-md"
               >
                 <div>
+                  <div className="mb-4 overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-slate-200">
+                    <div className="aspect-[4/3] w-full">
+                      <div className="flex h-full w-full items-center justify-center">
+                        <div className="text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
+                          Фото
+                          <br />
+                          скоро
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   {groupLabel && (
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{groupLabel}</p>
                   )}
@@ -270,15 +291,49 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId 
                       <p className="text-xs text-slate-500">В наличии: {item.quantity}</p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddToCart(item)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition ${
-                      addedItemId === item.id ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-500 hover:bg-amber-600"
-                    }`}
-                  >
-                    {addedItemId === item.id ? "Добавлено" : "В корзину"}
-                  </button>
+                  {(() => {
+                    const quantityInCart = cartItems.find((cartItem) => cartItem.id === item.id)?.quantity ?? 0;
+                    if (quantityInCart === 0) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => handleAddToCart(item)}
+                          className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
+                        >
+                          В корзину
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50/70 px-2 py-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleDecrease(item.id, quantityInCart)}
+                          className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-amber-700 shadow hover:bg-amber-100"
+                          aria-label="Уменьшить количество"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={quantityInCart}
+                          onChange={(event) => handleQuantityInput(item.id, event.target.value)}
+                          className="h-5 w-10 rounded-md border border-transparent bg-transparent text-center text-[11px] font-semibold text-amber-900 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleIncrease(item.id, quantityInCart)}
+                          className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-amber-700 shadow hover:bg-amber-100"
+                          aria-label="Увеличить количество"
+                        >
+                          +
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );

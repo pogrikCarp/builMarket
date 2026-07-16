@@ -52,6 +52,8 @@ export default function OrderPage() {
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("pickup");
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [submitted, setSubmitted] = useState(false);
+  const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [successCreatedAt, setSuccessCreatedAt] = useState<Date | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
 
   const updateField = (field: keyof FormState, value: string) => {
@@ -69,7 +71,125 @@ export default function OrderPage() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitted(true);
+    const generatedId = Math.floor(100000 + Math.random() * 900000).toString();
+    setSuccessOrderId(generatedId);
+    setSuccessCreatedAt(new Date());
   };
+
+  const renderSummary = () => {
+    if (items.length === 0) return null;
+    return (
+      <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Ваш заказ</p>
+        <div className="mt-4 space-y-3 text-sm text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Позиций</span>
+            <span className="font-semibold text-slate-900">{items.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Товаров</span>
+            <span className="font-semibold text-slate-900">{itemCount}</span>
+          </div>
+          <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+            <span className="text-base font-semibold text-slate-900">Итого</span>
+            <span className="text-2xl font-bold text-slate-900">{formatPrice(total)}</span>
+          </div>
+        </div>
+        <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          Проверьте состав заказа перед оплатой. При необходимости обновите количество в корзине.
+        </div>
+      </aside>
+    );
+  };
+
+  if (successOrderId) {
+    const readableDate = successCreatedAt?.toLocaleString("ru-RU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+
+    return (
+      <div className="min-h-screen bg-stone-50 text-slate-900">
+        <header className="border-b border-slate-100 bg-white">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
+            <Link href="/" className="flex shrink-0 items-center">
+              <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
+            </Link>
+            <nav className="flex items-center gap-3 text-sm">
+              <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
+              <Link href="/catalog" className="text-slate-600 hover:text-slate-900">Каталог</Link>
+              <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
+              <CartButton variant="inline" />
+            </nav>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-7xl px-4 py-8 md:py-12">
+          <div className="mb-10">
+            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Заказ сформирован</p>
+            <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl">Спасибо! Мы приняли заявку</h1>
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-500">
+              Номер заказа <span className="font-semibold text-slate-900">№{successOrderId}</span>. Мы свяжемся, как только проверим наличие и подтвердим доставку. Информация об оплате появится в вашем личном кабинете, а пока вы можете проверить состав заказа ниже.
+            </p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+            <section className="space-y-6 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p>Создан: {readableDate ?? "только что"}</p>
+                  <p className="mt-1">Статус: <span className="font-semibold text-emerald-600">ожидает подтверждения менеджера</span></p>
+                </div>
+                <div>
+                  Номер оплаты: <span className="font-semibold text-slate-900">№{successOrderId}/1</span>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-amber-100 bg-white p-6 shadow-sm">
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Оплата заказа</p>
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900">₽</div>
+                  <div>
+                    <p className="font-semibold text-slate-900">Онлайн-оплата будет подключена позже</p>
+                    <p className="text-xs text-slate-500">Сумма к оплате: {formatPrice(total)}</p>
+                  </div>
+                </div>
+                <p className="mt-4 text-xs leading-6 text-slate-500">
+                  Услугу предоставляет выбранный платёжный провайдер. После подтверждения менеджером вы сможете перейти к оплате и подписать документы.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => alert("Онлайн-оплата появится после подключения платёжного провайдера.")}
+                  className="mt-4 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950"
+                >
+                  Оплатить
+                </button>
+                <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
+                  Обратите внимание: если вы передумаете, обратитесь к менеджеру для отмены и возврата средств.
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-slate-100 bg-white p-6 shadow-sm">
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-400">Следующие шаги</p>
+                <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                  <li>1. Менеджер позвонит для подтверждения наличия и адреса доставки.</li>
+                </ul>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Link href="/catalog" className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-600">
+                    В каталог
+                  </Link>
+                  <Link href="/basket" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900">
+                    Вернуться в корзину
+                  </Link>
+                </div>
+              </div>
+            </section>
+            {renderSummary()}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -190,7 +310,10 @@ export default function OrderPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Компания</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Компания <span className="text-red-500">*</span>
+                    <span className="ml-1 text-xs font-normal text-slate-400">(необязательно)</span>
+                  </label>
                   <input
                     type="text"
                     value={form.company}
@@ -200,7 +323,10 @@ export default function OrderPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">ИНН</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    ИНН <span className="text-red-500">*</span>
+                    <span className="ml-1 text-xs font-normal text-slate-400">(необязательно)</span>
+                  </label>
                   <input
                     type="text"
                     value={form.inn}
