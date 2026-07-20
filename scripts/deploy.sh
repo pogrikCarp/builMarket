@@ -70,6 +70,53 @@ check_port_conflict() {
   fi
 }
 
+ensure_postgres() {
+  if ! command -v psql >/dev/null 2>&1; then
+    log "Установка PostgreSQL"
+    apt-get update -y
+    apt-get install -y postgresql postgresql-contrib
+    systemctl enable postgresql
+    systemctl start postgresql
+  fi
+
+  local db_url db_user db_pass db_host db_name
+  db_url=$(grep -E '^DATABASE_URL=' "$APP_DIR/.env" | head -n1 | sed -E 's/^DATABASE_URL=//; s/^"//; s/"$//')
+
+  if [ -z "$db_url" ]; then
+    log "DATABASE_URL не найден в .env - пропускаю автосоздание БД"
+    return
+  fi
+
+  db_user=$(echo "$db_url" | sed -E 's#^postgresql://([^:]+):.*#\1#')
+  db_pass=$(echo "$db_url" | sed -E 's#^postgresql://[^:]+:([^@]+)@.*#\1#')
+  db_host=$(echo "$db_url" | sed -E 's#.*@([^:/]+)[:/].*#\1#')
+  db_name=$(echo "$db_url" | sed -E 's#^[^/]+/([^/?]+).*#\1#')
+
+  if [ "$db_host" != "localhost" ] && [ "$db_host" != "127.0.0.1" ]; then
+    log "DATABASE_URL указывает на внешний хост ($db_host) - пропускаю автосоздание БД"
+    return
+  fi
+
+  log "Проверка роли и базы данных '${db_name}' в локальном PostgreSQL"
+  sudo -u postgres psql -v ON_ERROR_STOP=1 >/dev/null <<SQL
+DO
+\$\$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${db_user}') THEN
+      CREATE ROLE ${db_user} LOGIN PASSWORD '${db_pass}';
+   ELSE
+      ALTER ROLE ${db_user} WITH PASSWORD '${db_pass}';
+   END IF;
+END
+\$\$;
+SQL
+
+  if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${db_name}'" | grep -q 1; then
+    log "Создание базы данных '${db_name}'"
+    sudo -u postgres createdb -O "${db_user}" "${db_name}"
+  fi
+}
+
 build_application() {
   cd "$APP_DIR"
   log "Установка npm-зависимостей (npm ci)"
@@ -115,6 +162,7 @@ ensure_directory
 ensure_env_file
 ensure_dependencies
 check_port_conflict
+ensure_postgres
 build_application
 install_service
 restart_service
