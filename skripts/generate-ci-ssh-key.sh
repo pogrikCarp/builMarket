@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-KEY_NAME=${KEY_NAME:-buildmarket_ci}
+KEY_NAME=${KEY_NAME:-domstroy_ci}
 KEY_DIR=${KEY_DIR:-$HOME/.ssh}
 KEY_PATH="${KEY_DIR}/${KEY_NAME}"
-COMMENT=${COMMENT:-"buildmarket-ci"}
+COMMENT=${COMMENT:-"domstroy-ci"}
 
 log() {
   echo "[ssh-keygen] $1"
@@ -36,8 +36,9 @@ Private key : $KEY_PATH
 Public key  : ${KEY_PATH}.pub
 
 Next steps:
-1. Copy the *private* key content into GitHub secret SSH_KEY.
-2. Copy the *public* key (.pub) into /root/.ssh/authorized_keys on the server.
+1. Copy the *private* key content (cat $KEY_PATH) into GitHub repo secret named SSH_KEY.
+2. Append the *public* key content (cat ${KEY_PATH}.pub) to /root/.ssh/authorized_keys on the server.
+3. Confirm secrets SSH_HOST, SSH_PORT, SSH_USER=root are also set in the repo.
 ============================================
 INFO
 }

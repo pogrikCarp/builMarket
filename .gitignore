@@ -39,6 +39,7 @@ yarn-error.log*
 copy*.ps1
 push_domsite.ps1
 moysklad-test-response.json
+prisma/dev.db
 
 # vercel
 .vercel

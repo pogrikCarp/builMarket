@@ -5,7 +5,7 @@ set -euo pipefail
 DB_NAME=${DB_NAME:-buildmarket}
 DB_USER=${DB_USER:-buildmarket}
 DB_PASSWORD=${DB_PASSWORD:-buildmarket_secret}
-APP_DIR=${APP_DIR:-/opt/myapp}
+APP_DIR=${APP_DIR:-/opt/domstroy}
 NODE_MAJOR=${NODE_MAJOR:-20}
 
 log() {
@@ -75,7 +75,7 @@ configure_firewall() {
   if command -v ufw >/dev/null 2>&1; then
     log "Configuring UFW firewall"
     ufw allow OpenSSH || true
-    ufw allow 3000/tcp || true
+    ufw allow 4000/tcp || true
     ufw --force enable || true
   fi
 }

@@ -4,7 +4,7 @@ set -euo pipefail
 DB_NAME=${DB_NAME:-buildmarket}
 DB_USER=${DB_USER:-buildmarket}
 DB_PASSWORD=${DB_PASSWORD:-buildmarket_demo}
-APP_DIR=${APP_DIR:-/opt/myapp}
+APP_DIR=${APP_DIR:-/opt/domstroy}
 ADMIN_EMAIL=${ADMIN_EMAIL:-admin@buildmarket.demo}
 ADMIN_PASSWORD=${ADMIN_PASSWORD:-Admin123!}
 ADMIN_NAME=${ADMIN_NAME:-"Demo Admin"}
