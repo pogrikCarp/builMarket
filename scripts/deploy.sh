@@ -138,6 +138,15 @@ build_application() {
   npm run build
 }
 
+ensure_admin_user() {
+  if ! grep -qE '^ADMIN_EMAIL=' "$APP_DIR/.env"; then
+    log "ADMIN_EMAIL не задан в .env - пропускаю создание админа"
+    return
+  fi
+  log "Проверка/создание учётной записи администратора"
+  node --env-file="$APP_DIR/.env" "$APP_DIR/skripts/create-demo-admin.js"
+}
+
 install_service() {
   if [ ! -f "$UNIT_PATH" ] || ! cmp -s "$APP_DIR/deploy/domstroy.service" "$UNIT_PATH"; then
     log "Установка/обновление systemd-юнита $SERVICE_NAME"
@@ -170,6 +179,7 @@ ensure_dependencies
 check_port_conflict
 ensure_postgres
 build_application
+ensure_admin_user
 install_service
 restart_service
 verify_service
