@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import CartButton from "@/components/cart/CartButton";
 import { LOOKBOOKS } from "@/lib/lookbooks";
 import SiteFooter from "@/components/SiteFooter";
+import { PROMO_PRODUCTS } from "@/lib/promo-products";
 
 type LinkItem = { label: string; href: string };
 
@@ -94,49 +95,6 @@ const HERO_SLIDES = [
     caption: "Инженерные решения для сантехники",
     image: "/car3.png",
     highlights: ["Водоснабжение", "Отопление", "Монтаж инженерии"],
-  },
-];
-
-const PROMO_PRODUCTS = [
-  {
-    title: "Труба двустенная гофрированная 340/300 мм",
-    price: "5 100 ₽/шт.",
-    oldPrice: "6 000 ₽/шт.",
-    stock: 85,
-    discount: 15,
-    image: "https://picsum.photos/seed/prod1/600/400",
-  },
-  {
-    title: "Профнастил тёмно-серый RAL 7024",
-    price: "610 ₽/м²",
-    oldPrice: "670 ₽/м.л.",
-    stock: 441,
-    discount: 9,
-    image: "https://picsum.photos/seed/prod2/600/400",
-  },
-  {
-    title: "Knauf Rotband 30 кг",
-    price: "430 ₽/меш.",
-    oldPrice: "547 ₽/меш.",
-    stock: 359,
-    discount: 21,
-    image: "https://picsum.photos/seed/prod3/600/400",
-  },
-  {
-    title: "Профиль потолочный 60×27",
-    price: "315 ₽/шт.",
-    oldPrice: "360 ₽/шт.",
-    stock: 112,
-    discount: 12,
-    image: "https://picsum.photos/seed/prod4/600/400",
-  },
-  {
-    title: "Грунтовка глубокого проникновения",
-    price: "280 ₽/канистра",
-    oldPrice: "320 ₽/канистра",
-    stock: 204,
-    discount: 13,
-    image: "https://picsum.photos/seed/prod5/600/400",
   },
 ];
 
@@ -585,9 +543,11 @@ const CertificatesCarousel = () => {
   const [visibleCount, setVisibleCount] = useState(3);
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     const handleResize = () => {
-      if (!containerRef.current) return;
-      const width = containerRef.current.offsetWidth;
+      const width = container.clientWidth;
       setViewportWidth(width);
       const computedVisible = Math.max(
         1,
@@ -600,16 +560,14 @@ const CertificatesCarousel = () => {
         )
       );
       setVisibleCount(computedVisible);
+      setIndex((prev) => Math.min(prev, Math.max(0, CERT_PLACEHOLDERS.length - computedVisible)));
     };
 
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(container);
     handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => resizeObserver.disconnect();
   }, []);
-
-  useEffect(() => {
-    setIndex((prev) => Math.min(prev, Math.max(0, CERT_PLACEHOLDERS.length - visibleCount)));
-  }, [visibleCount]);
 
   const cardWidth = viewportWidth
     ? (viewportWidth - CARD_GAP * Math.max(visibleCount - 1, 0)) / visibleCount
@@ -623,18 +581,18 @@ const CertificatesCarousel = () => {
   const handleNext = () => setIndex((prev) => Math.min(prev + 1, maxIndex));
 
   const navButtonBase =
-    "absolute top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-sm border border-white/40 bg-black/40 text-white text-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30";
+    "absolute top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-black/55 text-lg text-white opacity-100 shadow-lg transition duration-300 hover:bg-black/75 md:opacity-0 md:group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30";
 
   return (
-    <div className="group relative w-full" ref={containerRef}>
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-0 w-32 bg-gradient-to-r from-[#fdf2e9] to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-0 w-32 bg-gradient-to-l from-[#fdf2e9] to-transparent" />
+    <div className="group relative w-full min-w-0">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-0 hidden w-32 bg-gradient-to-r from-[#fdf2e9] to-transparent sm:block" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-0 hidden w-32 bg-gradient-to-l from-[#fdf2e9] to-transparent sm:block" />
 
       <button
         type="button"
         onClick={handlePrev}
         disabled={index === 0}
-        className={`${navButtonBase} left-4`}
+        className={`${navButtonBase} left-2 sm:left-4`}
         aria-label="Предыдущий сертификат"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -645,7 +603,7 @@ const CertificatesCarousel = () => {
         type="button"
         onClick={handleNext}
         disabled={index === maxIndex}
-        className={`${navButtonBase} right-4`}
+        className={`${navButtonBase} right-2 sm:right-4`}
         aria-label="Следующий сертификат"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -653,22 +611,24 @@ const CertificatesCarousel = () => {
         </svg>
       </button>
 
-      <div className="overflow-hidden w-full rounded-[40px] border border-white/40 bg-white/30 p-6 shadow-[0_25px_120px_rgba(8,5,1,0.08)]">
-        <div
-          className="flex items-stretch gap-6 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          style={{ transform: `translateX(-${offset}px)`, width: trackWidth }}
-        >
+      <div className="w-full min-w-0 overflow-hidden rounded-3xl border border-white/40 bg-white/30 p-3 shadow-[0_25px_120px_rgba(8,5,1,0.08)] sm:rounded-[40px] sm:p-6">
+        <div ref={containerRef} className="w-full min-w-0 overflow-hidden">
+          <div
+            className="flex items-stretch gap-6 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+            style={{ transform: `translateX(-${offset}px)`, width: trackWidth }}
+          >
           {CERT_PLACEHOLDERS.map((card, idx) => (
             <div
               key={card.id}
               style={{ width: cardWidth, animationDelay: `${idx * 80}ms` }}
               className="group relative flex-shrink-0 overflow-hidden rounded-[32px] border border-amber-100 bg-white/90 p-4 text-center shadow-[0_35px_80px_rgba(19,12,3,0.12)] transition duration-500 hover:-translate-y-2 hover:border-amber-300 animate-fade-up"
             >
-              <div className="relative mx-auto h-48 w-full">
-                <Image src={card.image} alt={card.label} fill className="object-contain" sizes="(max-width: 768px) 70vw, 18vw" />
+              <div className="relative mx-auto h-44 w-full sm:h-48">
+                <Image src={card.image} alt={card.label} fill className="object-contain" sizes="(max-width: 640px) calc(100vw - 56px), 18vw" />
               </div>
             </div>
           ))}
+          </div>
         </div>
       </div>
     </div>
@@ -841,9 +801,9 @@ export default function Home() {
           <div className={CONTENT_CONTAINER}>
             <div className="mb-6 flex flex-col gap-4 text-start lg:flex-row lg:items-end lg:justify-between">
               <SectionTitle title="Лучшие предложения по акции" subtitle="акции" />
-              <a href="#" className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-600 transition hover:text-slate-900">
+              <Link href="/catalog?section=promo" className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600 transition hover:text-slate-900 sm:tracking-[0.35em]">
                 Весь список товара →
-              </a>
+              </Link>
             </div>
             <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
               {/* Левое промо-фото */}
@@ -891,16 +851,16 @@ export default function Home() {
 
         <section className="section-surface py-12">
           <div className={CONTENT_CONTAINER}>
-            <div className="mb-6 flex items-center justify-between">
-              <SectionTitle title="Наборы" subtitle="lookbooks" />
+            <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <SectionTitle title="Наборы" subtitle="lookbooks" className="mb-0" />
               <Link
                 href="/lookbooks"
-                className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-600 transition hover:text-slate-900"
+                className="shrink-0 text-xs font-semibold uppercase tracking-[0.25em] text-amber-600 transition hover:text-slate-900 sm:pt-5 sm:tracking-[0.35em]"
               >
                 Все наборы →
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {SETS.map((set) => (
                 <Link
                   key={set.title}
@@ -910,14 +870,14 @@ export default function Home() {
                     backgroundImage: `url(${set.image})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
-                    aspectRatio: "0.62",
-                    minHeight: "360px",
+                    aspectRatio: "0.72",
+                    minHeight: "320px",
                   }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent transition group-hover:from-black/65"></div>
-                  <div className="absolute inset-0 flex flex-col justify-end p-7 text-white">
-                    <p className="text-xs uppercase tracking-[0.4em] text-white/70">{set.accent}</p>
-                    <h3 className="mt-2 text-2xl font-semibold leading-snug">{set.title}</h3>
+                  <div className="absolute inset-0 flex flex-col justify-end p-5 text-white sm:p-7">
+                    <p className="text-[11px] uppercase tracking-[0.3em] text-white/70 sm:text-xs sm:tracking-[0.4em]">{set.accent}</p>
+                    <h3 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{set.title}</h3>
                   </div>
                 </Link>
               ))}
@@ -967,11 +927,11 @@ export default function Home() {
 
         <section className="section-surface py-12">
           <div className={CONTENT_CONTAINER}>
-            <div className="mb-6 flex items-center justify-between">
-              <SectionTitle title="Бренды" subtitle="партнёры" />
+            <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <SectionTitle title="Бренды" subtitle="партнёры" className="mb-0" />
               <Link
                 href={BRAND_LINKS[0].href}
-                className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-600 transition hover:text-slate-900"
+                className="shrink-0 text-xs font-semibold uppercase tracking-[0.25em] text-amber-600 transition hover:text-slate-900 sm:pt-5 sm:tracking-[0.35em]"
               >
                 Все бренды →
               </Link>
@@ -998,11 +958,11 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="relative w-full overflow-hidden bg-gradient-to-r from-[#fdf7ef] via-[#fffaf4] to-[#fdf7ef] py-20">
+        <section className="relative w-full overflow-hidden bg-gradient-to-r from-[#fdf7ef] via-[#fffaf4] to-[#fdf7ef] py-12 sm:py-20">
           <div className={`${CONTENT_CONTAINER} mb-4`}>
             <div className="flex flex-col gap-4 text-start lg:flex-row lg:items-start lg:justify-between">
               <SectionTitle title="Сертификаты и награды" subtitle="карусель" className="mb-0" />
-              <Link href={BRAND_LINKS[1].href} className="pt-5 text-xs font-semibold uppercase tracking-[0.35em] text-amber-600 transition hover:text-slate-900">
+              <Link href={BRAND_LINKS[1].href} className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600 transition hover:text-slate-900 sm:tracking-[0.35em] lg:pt-5">
                 Все сертификаты →
               </Link>
             </div>

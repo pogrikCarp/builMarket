@@ -7,10 +7,11 @@ import CatalogBrowser from "@/components/CatalogBrowser";
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ folder?: string }>;
+  searchParams?: Promise<{ folder?: string; section?: string }>;
 }) {
   const params = await searchParams;
   const initialFolderId = params?.folder;
+  const initialSection = params?.section === "promo" ? "promo" : "all";
 
   const foldersResult = await getProductFolders();
   const selectedFolder = initialFolderId
@@ -54,7 +55,7 @@ export default async function CatalogPage({
         )}
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
-          <CatalogBrowser folders={folders} initialItems={initialItems} initialFolderId={initialFolderId} />
+          <CatalogBrowser folders={folders} initialItems={initialItems} initialFolderId={initialFolderId} initialSection={initialSection} />
         </div>
       </main>
     </div>
