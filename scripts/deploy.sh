@@ -87,10 +87,16 @@ ensure_postgres() {
     return
   fi
 
-  db_user=$(echo "$db_url" | sed -E 's#^postgresql://([^:]+):.*#\1#')
-  db_pass=$(echo "$db_url" | sed -E 's#^postgresql://[^:]+:([^@]+)@.*#\1#')
-  db_host=$(echo "$db_url" | sed -E 's#.*@([^:/]+)[:/].*#\1#')
-  db_name=$(echo "$db_url" | sed -E 's#^[^/]+/([^/?]+).*#\1#')
+  local no_scheme userinfo_host path_query userinfo hostport
+  no_scheme="${db_url#*://}"
+  userinfo_host="${no_scheme%%/*}"
+  path_query="${no_scheme#*/}"
+  db_name="${path_query%%\?*}"
+  userinfo="${userinfo_host%%@*}"
+  hostport="${userinfo_host#*@}"
+  db_user="${userinfo%%:*}"
+  db_pass="${userinfo#*:}"
+  db_host="${hostport%%:*}"
 
   if [ "$db_host" != "localhost" ] && [ "$db_host" != "127.0.0.1" ]; then
     log "DATABASE_URL указывает на внешний хост ($db_host) - пропускаю автосоздание БД"
