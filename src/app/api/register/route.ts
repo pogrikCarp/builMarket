@@ -22,31 +22,48 @@ export async function POST(request: Request) {
     }
 
     const normalizedEmail = String(email).toLowerCase();
+    const normalizedPhone = phone ? String(phone).replace(/\D/g, "") : null;
+    const existingByEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const existingByPhone = normalizedPhone
+      ? await prisma.user.findFirst({ where: { phone: normalizedPhone } })
+      : null;
 
-    const existing = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    if (existingByEmail && existingByPhone && existingByEmail.id !== existingByPhone.id) {
+      return NextResponse.json({ error: "Email и телефон уже принадлежат разным пользователям" }, { status: 409 });
+    }
 
-    if (existing) {
+    const existing = existingByPhone ?? existingByEmail;
+    const passwordHash = await bcrypt.hash(String(password), 10);
+
+    if (existing?.passwordHash) {
       return NextResponse.json(
-        { error: "Пользователь с таким email уже существует" },
+        { error: "Пользователь с такими данными уже зарегистрирован" },
         { status: 409 }
       );
     }
 
-    const passwordHash = await bcrypt.hash(String(password), 10);
+    const user = existing
+      ? await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            name: name ? String(name) : existing.name,
+            email: normalizedEmail,
+            phone: normalizedPhone || existing.phone,
+            passwordHash,
+          },
+          select: { id: true, email: true, name: true },
+        })
+      : await prisma.user.create({
+          data: {
+            name: name ? String(name) : null,
+            email: normalizedEmail,
+            phone: normalizedPhone,
+            passwordHash,
+          },
+          select: { id: true, email: true, name: true },
+        });
 
-    const user = await prisma.user.create({
-      data: {
-        name: name ? String(name) : null,
-        email: normalizedEmail,
-        phone: phone ? String(phone) : null,
-        passwordHash,
-      },
-      select: { id: true, email: true, name: true },
-    });
-
-    return NextResponse.json({ user }, { status: 201 });
+    return NextResponse.json({ user, claimedGuestAccount: Boolean(existing) }, { status: existing ? 200 : 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

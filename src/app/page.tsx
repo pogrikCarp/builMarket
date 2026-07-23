@@ -9,11 +9,18 @@ import SiteFooter from "@/components/SiteFooter";
 import { PROMO_PRODUCTS } from "@/lib/promo-products";
 
 type LinkItem = { label: string; href: string };
+type HomeMedia = {
+  id: string;
+  type: "HERO" | "LOOKBOOK" | "CERTIFICATE" | "BRAND";
+  title: string;
+  image: string | null;
+  sortOrder: number;
+};
 
 const CONTACTS = {
   phones: [
-    { label: "8 499 702 55 45", href: "tel:84997025545" },
-    { label: "8 800 250 76 26", href: "tel:88002507626", note: "Звонок бесплатный" },
+    { label: "+7 (937) 621-77-77", href: "tel:+79376217777" },
+    { label: "+7 (937) 621-77-77", href: "tel:+79376217777", note: "Звонок бесплатный" },
   ],
   email: { label: "info@domstroy.market", href: "mailto:info@domstroy.market" },
 };
@@ -452,19 +459,19 @@ const SectionTitle = ({ title, subtitle, className = "" }: { title: string; subt
 
 const CONTENT_CONTAINER = "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8";
 
-const HeroCarousel = () => {
+const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeSlide = HERO_SLIDES[activeIndex];
+  const activeSlide = slides[activeIndex] ?? slides[0];
 
-  const goPrev = () => setActiveIndex((prev) => (prev === 0 ? HERO_SLIDES.length - 1 : prev - 1));
-  const goNext = () => setActiveIndex((prev) => (prev === HERO_SLIDES.length - 1 ? 0 : prev + 1));
+  const goPrev = () => setActiveIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+  const goNext = () => setActiveIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setActiveIndex((prev) => (prev === HERO_SLIDES.length - 1 ? 0 : prev + 1));
+      setActiveIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
     }, 7000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   const arrowButtonBase =
     "absolute top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-sm border border-white/40 bg-black/40 text-white text-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100";
@@ -472,7 +479,7 @@ const HeroCarousel = () => {
   return (
     <section className="relative w-full overflow-hidden">
       <div className="group relative h-[320px] w-full overflow-hidden bg-slate-900 sm:h-[420px] md:h-[520px] lg:h-[600px]">
-        {HERO_SLIDES.map((slide, idx) => (
+        {slides.map((slide, idx) => (
           <Image
             key={slide.id}
             src={slide.image}
@@ -515,7 +522,7 @@ const HeroCarousel = () => {
         </div>
       </div>
       <div className="absolute inset-x-0 bottom-6 z-30 flex justify-center gap-2">
-        {HERO_SLIDES.map((slide, idx) => (
+        {slides.map((slide, idx) => (
           <button
             key={slide.id}
             type="button"
@@ -533,7 +540,9 @@ const HeroCarousel = () => {
   );
 };
 
-const CertificatesCarousel = () => {
+type CertificateCard = { id: string | number; label: string; image: string };
+
+const CertificatesCarousel = ({ cards }: { cards: CertificateCard[] }) => {
   const CARD_MIN_WIDTH = 200;
   const CARD_GAP = 24;
   const MAX_VISIBLE = 6;
@@ -554,27 +563,27 @@ const CertificatesCarousel = () => {
         Math.min(
           MAX_VISIBLE,
           Math.min(
-            CERT_PLACEHOLDERS.length,
+            cards.length,
             Math.floor((width + CARD_GAP) / (CARD_MIN_WIDTH + CARD_GAP))
           )
         )
       );
       setVisibleCount(computedVisible);
-      setIndex((prev) => Math.min(prev, Math.max(0, CERT_PLACEHOLDERS.length - computedVisible)));
+      setIndex((prev) => Math.min(prev, Math.max(0, cards.length - computedVisible)));
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
     handleResize();
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [cards.length]);
 
   const cardWidth = viewportWidth
     ? (viewportWidth - CARD_GAP * Math.max(visibleCount - 1, 0)) / visibleCount
     : CARD_MIN_WIDTH;
   const cardFullWidth = cardWidth + CARD_GAP;
-  const trackWidth = cardFullWidth * CERT_PLACEHOLDERS.length - CARD_GAP;
-  const maxIndex = Math.max(0, CERT_PLACEHOLDERS.length - visibleCount);
+  const trackWidth = cardFullWidth * cards.length - CARD_GAP;
+  const maxIndex = Math.max(0, cards.length - visibleCount);
   const offset = index * cardFullWidth;
 
   const handlePrev = () => setIndex((prev) => Math.max(prev - 1, 0));
@@ -617,7 +626,7 @@ const CertificatesCarousel = () => {
             className="flex items-stretch gap-6 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{ transform: `translateX(-${offset}px)`, width: trackWidth }}
           >
-          {CERT_PLACEHOLDERS.map((card, idx) => (
+          {cards.map((card, idx) => (
             <div
               key={card.id}
               style={{ width: cardWidth, animationDelay: `${idx * 80}ms` }}
@@ -637,6 +646,47 @@ const CertificatesCarousel = () => {
 
 export default function Home() {
   const [callbackOpen, setCallbackOpen] = useState(false);
+  const [homeMedia, setHomeMedia] = useState<HomeMedia[]>([]);
+
+  useEffect(() => {
+    fetch("/api/home-content")
+      .then((response) => (response.ok ? response.json() : { content: [] }))
+      .then((data) => setHomeMedia(data.content ?? []))
+      .catch(() => setHomeMedia([]));
+  }, []);
+
+  const heroSlides = useMemo(
+    () => HERO_SLIDES.map((slide, index) => ({ ...slide, image: homeMedia.find((item) => item.type === "HERO" && item.sortOrder === index)?.image || slide.image })),
+    [homeMedia]
+  );
+  const sets = useMemo(
+    () => SETS.map((set, index) => ({ ...set, image: homeMedia.find((item) => item.type === "LOOKBOOK" && item.sortOrder === index)?.image || set.image })),
+    [homeMedia]
+  );
+  const certificates = useMemo(
+    () => [
+      ...CERT_PLACEHOLDERS.map((certificate, index) => ({
+        ...certificate,
+        image: homeMedia.find((item) => item.type === "CERTIFICATE" && item.sortOrder === index)?.image || certificate.image,
+      })),
+      ...homeMedia
+        .filter((item) => item.type === "CERTIFICATE" && item.sortOrder >= CERT_PLACEHOLDERS.length && item.image)
+        .map((item) => ({ id: item.id, label: item.title, image: item.image as string })),
+    ],
+    [homeMedia]
+  );
+  const brands = useMemo(
+    () => [
+      ...BRANDS.map((brand, index) => ({
+        ...brand,
+        logo: homeMedia.find((item) => item.type === "BRAND" && item.sortOrder === index)?.image || brand.logo,
+      })),
+      ...homeMedia
+        .filter((item) => item.type === "BRAND" && item.sortOrder >= BRANDS.length && item.image)
+        .map((item) => ({ name: item.title, logo: item.image as string })),
+    ],
+    [homeMedia]
+  );
 
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
@@ -738,7 +788,7 @@ export default function Home() {
       </header>
 
       <main className="space-y-12">
-        <HeroCarousel />
+        <HeroCarousel slides={heroSlides} />
 
         {/* 5 карточек-ссылок под каруселью */}
         <section className="section-surface py-8">
@@ -861,7 +911,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {SETS.map((set) => (
+              {sets.map((set) => (
                 <Link
                   key={set.title}
                   href={set.href}
@@ -937,7 +987,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {BRANDS.map((brand, idx) => (
+              {brands.map((brand, idx) => (
                 <div
                   key={brand.name}
                   className="group premium-card flex h-24 items-center justify-center rounded-xl border border-slate-100 bg-white px-4 shadow-sm transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg"
@@ -968,7 +1018,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mx-auto w-full px-4 sm:px-6 lg:px-12">
-            <CertificatesCarousel />
+            <CertificatesCarousel cards={certificates} />
           </div>
         </section>
 

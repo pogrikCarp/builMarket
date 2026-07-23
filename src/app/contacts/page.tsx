@@ -12,7 +12,7 @@ export default function ContactsPage() {
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#fff7e8] via-white to-[#f4ead9]" />
           <div className="mx-auto max-w-7xl px-4 py-10 md:py-14">
             <Link href="/" className="text-xs font-semibold uppercase tracking-[0.45em] text-amber-600 transition hover:text-amber-700">
-              ← ДомСтрой
+              ← ДробМашЦентр
             </Link>
             <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
               <div>
@@ -39,8 +39,8 @@ export default function ContactsPage() {
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Отправьте вопрос, пожелание или предложение. Ответим по электронной почте.
               </p>
-              <a href="mailto:info@domstroy.market" className="mt-5 inline-flex text-sm font-semibold text-amber-700 transition hover:text-amber-800">
-                info@domstroy.market →
+              <a href="mailto:drobmascentr@mail.ru" className="mt-5 inline-flex text-sm font-semibold text-amber-700 transition hover:text-amber-800">
+                drobmascentr@mail.ru →
               </a>
             </article>
 
@@ -51,8 +51,8 @@ export default function ContactsPage() {
                 Подскажем по ассортименту, наличию, оплате, комплектации заказа и доставке.
               </p>
               <div className="mt-5 space-y-2 text-sm font-semibold text-amber-700">
-                <a href="tel:88002507626" className="block transition hover:text-amber-800">8 800 250 76 26</a>
-                <a href="tel:84997025545" className="block transition hover:text-amber-800">8 499 702 55 45</a>
+                <a href="tel:+79376217777" className="block transition hover:text-amber-800">+7 (937) 621-77-77</a>
+                <a href="tel:+79376217777" className="block transition hover:text-amber-800">+7 (937) 621-77-77</a>
               </div>
             </article>
 
@@ -62,7 +62,9 @@ export default function ContactsPage() {
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Перед поездкой уточните адрес, наличие товара и возможность самовывоза.
               </p>
-              <div className={missingDataClass}>Нужно указать точный адрес магазина или склада самовывоза</div>
+              <address className="mt-3 not-italic rounded-2xl border border-amber-100 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
+                142030, Московская область, г.о. Домодедово, с/п Ям, ул. 1-я Зеленовка, д. 39
+              </address>
             </article>
           </div>
         </section>
@@ -79,14 +81,16 @@ export default function ContactsPage() {
               <div className="mt-8 grid gap-5 sm:grid-cols-2">
                 <div className="rounded-3xl bg-[#f8f4ed] p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Центральный офис</p>
-                  <div className={missingDataClass}>Нужен фактический адрес центрального офиса</div>
-                  <div className={missingDataClass}>Нужен график работы офиса</div>
+                  <address className="mt-3 not-italic text-sm leading-6 text-slate-700">
+                    142030, Московская область, г.о. Домодедово, с/п Ям, ул. 1-я Зеленовка, д. 39
+                  </address>
                 </div>
                 <div className="rounded-3xl bg-[#f8f4ed] p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Юридическое лицо</p>
-                  <div className={missingDataClass}>Нужно полное наименование ООО или ИП</div>
-                  <div className={missingDataClass}>Нужны ИНН, КПП и ОГРН/ОГРНИП</div>
-                  <div className={missingDataClass}>Нужен юридический адрес</div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">ООО «ДробМашЦентр»</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">ИНН 5009073556 / КПП 500901001</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">ОГРН 1105009000898 / ОКВЭД 51.6 / ОКПО 63579656</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">142030, Московская область, г.о. Домодедово, с/п Ям, ул. 1-я Зеленовка, д. 39</p>
                 </div>
               </div>
             </div>
@@ -98,17 +102,17 @@ export default function ContactsPage() {
                 Позвоните на бесплатную линию или напишите нам. Для быстрого расчёта подготовьте список материалов, количество и адрес доставки.
               </p>
               <div className="mt-7 space-y-3">
-                <a href="tel:88002507626" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
+                <a href="tel:+79376217777" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
                   <span>Бесплатная линия</span>
-                  <span>8 800 250 76 26</span>
+                  <span>+7 (937) 621-77-77</span>
                 </a>
-                <a href="tel:84997025545" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
+                <a href="tel:+79376217777" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
                   <span>Городской номер</span>
-                  <span>8 499 702 55 45</span>
+                  <span>+7 (937) 621-77-77</span>
                 </a>
-                <a href="mailto:info@domstroy.market" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
+                <a href="mailto:drobmascentr@mail.ru" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
                   <span>Электронная почта</span>
-                  <span>info@domstroy.market</span>
+                  <span>drobmascentr@mail.ru</span>
                 </a>
               </div>
               <div className="mt-6 rounded-2xl border border-red-400/60 bg-red-500/10 px-4 py-3 text-sm font-semibold leading-6 text-red-300">
@@ -126,7 +130,9 @@ export default function ContactsPage() {
               <p className="mt-4 text-sm leading-7 text-slate-600">
                 Здесь появятся адрес, ориентиры, схема проезда и ссылка на навигатор.
               </p>
-              <div className={missingDataClass}>Нужны адреса всех магазинов и складов</div>
+              <address className="mt-3 not-italic rounded-2xl border border-amber-100 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
+                142030, Московская область, г.о. Домодедово, с/п Ям, ул. 1-я Зеленовка, д. 39
+              </address>
               <div className={missingDataClass}>Нужны ссылки на Яндекс Карты или координаты</div>
               <div className={missingDataClass}>Нужны часы работы каждой точки</div>
               <div className={missingDataClass}>Нужны ссылки на ВКонтакте и Telegram</div>
@@ -138,7 +144,7 @@ export default function ContactsPage() {
               <p className="mt-4 text-sm leading-7 text-slate-600">
                 Заполните данные и опишите вопрос. Сообщение можно отправить через ваш почтовый клиент.
               </p>
-              <form action="mailto:info@domstroy.market" method="post" encType="text/plain" className="mt-7 grid gap-4 sm:grid-cols-2">
+              <form action="mailto:drobmascentr@mail.ru" method="post" encType="text/plain" className="mt-7 grid gap-4 sm:grid-cols-2">
                 <label className="text-sm font-medium text-slate-700">
                   Ваше имя
                   <input name="name" required placeholder="Иван Иванов" className="mt-2 w-full rounded-2xl border border-slate-200 bg-[#faf9f7] px-4 py-3 outline-none transition placeholder:text-slate-400 focus:border-amber-400 focus:ring-4 focus:ring-amber-100" />

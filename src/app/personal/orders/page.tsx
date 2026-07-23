@@ -3,6 +3,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "../PageHeader";
 
+const STATUS_LABELS: Record<string, string> = {
+  NEW: "Новый",
+  PROCESSING: "В обработке",
+  SHIPPED: "Отправлен",
+  DELIVERED: "Доставлен",
+  CANCELLED: "Отменён",
+};
+
 export default async function OrdersPage() {
   const session = await auth();
   const orders = session?.user?.id
@@ -47,10 +55,13 @@ export default async function OrdersPage() {
                 <p className="text-sm text-slate-500">
                   {new Date(order.createdAt).toLocaleDateString("ru-RU")}
                 </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {order.deliveryType === "courier" ? "Доставка" : "Самовывоз"} · {order.phone || "Телефон не указан"}
+                </p>
               </div>
               <div className="text-right">
                 <p className="font-semibold text-slate-900">{String(order.total)} ₽</p>
-                <p className="text-sm text-amber-600">{order.status}</p>
+                <p className="text-sm text-amber-600">{STATUS_LABELS[order.status] ?? order.status}</p>
               </div>
             </div>
           ))}

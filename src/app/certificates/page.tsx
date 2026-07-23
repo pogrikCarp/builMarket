@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 const CERTIFICATES = [
   { id: 1, title: "Сертификат соответствия", image: "/sertificat/sert1.png" },
@@ -11,7 +14,21 @@ const CERTIFICATES = [
   { id: 6, title: "Технический допуск", image: "/sertificat/sert6.png" },
 ];
 
-export default function CertificatesPage() {
+export default async function CertificatesPage() {
+  const media = await prisma.banner.findMany({
+    where: { type: "CERTIFICATE", active: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  const certificates = [
+    ...CERTIFICATES.map((certificate, index) => ({
+      ...certificate,
+      image: media.find((item) => item.sortOrder === index)?.image || certificate.image,
+    })),
+    ...media
+      .filter((item) => item.sortOrder >= CERTIFICATES.length && item.image)
+      .map((item) => ({ id: item.id, title: item.title, image: item.image as string })),
+  ];
+
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
       <main>
@@ -38,7 +55,7 @@ export default function CertificatesPage() {
             <h2 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Документы для работы и государственных проектов</h2>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {CERTIFICATES.map((certificate) => (
+            {certificates.map((certificate) => (
               <div key={certificate.id} className="rounded-2xl border border-slate-100 bg-white/90 p-3 shadow-sm sm:rounded-3xl sm:p-4">
                 <div className="relative h-56 overflow-hidden rounded-xl bg-slate-50 sm:h-64 sm:rounded-2xl">
                   <Image src={certificate.image} alt={certificate.title} fill className="object-contain p-4 sm:p-6" />

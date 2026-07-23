@@ -8,6 +8,14 @@ async function requireAdmin() {
   return session;
 }
 
+const BANNER_TYPES = ["BANNER", "PROMO", "HERO", "LOOKBOOK", "CERTIFICATE", "BRAND"] as const;
+
+function normalizeType(value: unknown) {
+  return BANNER_TYPES.includes(value as (typeof BANNER_TYPES)[number])
+    ? (value as (typeof BANNER_TYPES)[number])
+    : "BANNER";
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -20,7 +28,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const banner = await prisma.banner.update({
       where: { id },
       data: {
-        ...(type ? { type: type === "PROMO" ? "PROMO" : "BANNER" } : {}),
+        ...(type ? { type: normalizeType(type) } : {}),
         ...(title !== undefined ? { title } : {}),
         ...(subtitle !== undefined ? { subtitle: subtitle || null } : {}),
         ...(image !== undefined ? { image: image || null } : {}),

@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 const BRANDS = [
   { name: "Fengbao", logo: "/comp/1fengbao.webp" },
@@ -24,7 +27,21 @@ const BRAND_NOTES = [
   "Поддерживаем расширенные прайс-листы и обучаем менеджеров",
 ];
 
-export default function BrandsPage() {
+export default async function BrandsPage() {
+  const media = await prisma.banner.findMany({
+    where: { type: "BRAND", active: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  const brands = [
+    ...BRANDS.map((brand, index) => ({
+      ...brand,
+      logo: media.find((item) => item.sortOrder === index)?.image || brand.logo,
+    })),
+    ...media
+      .filter((item) => item.sortOrder >= BRANDS.length && item.image)
+      .map((item) => ({ name: item.title, logo: item.image as string })),
+  ];
+
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
       <main>
@@ -58,7 +75,7 @@ export default function BrandsPage() {
             <h2 className="mt-2 text-3xl font-semibold text-slate-900">Бренды партнёров ДомСтрой</h2>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {BRANDS.map((brand) => (
+            {brands.map((brand) => (
               <div key={brand.name} className="rounded-[28px] border border-slate-100 bg-white/90 p-5 shadow-sm">
                 <div className="flex h-24 items-center justify-center rounded-2xl bg-[#fdf8f1]">
                   <Image src={brand.logo} alt={brand.name} width={180} height={80} className="h-16 w-auto object-contain" />
@@ -79,7 +96,7 @@ export default function BrandsPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <a
-                href="tel:88002507626"
+                href="tel:+79376217777"
                 className="rounded-full bg-[#2d1c0d] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-amber-200 transition hover:bg-[#3a2614]"
               >
                 Связаться с отделом закупок

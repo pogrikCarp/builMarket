@@ -9,6 +9,11 @@ type Order = {
   total: string;
   createdAt: string;
   user: { name: string | null; email: string; phone: string | null } | null;
+  customerName: string | null;
+  phone: string | null;
+  email: string | null;
+  deliveryType: string | null;
+  paymentType: string | null;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -101,11 +106,15 @@ export function OrdersTable() {
                     {new Date(o.createdAt).toLocaleString("ru-RU")}
                   </td>
                   <td className="py-3 pr-4">
-                    <div className="text-slate-900">{o.user?.name || "—"}</div>
-                    <div className="text-xs text-slate-400">{o.user?.email}</div>
+                    <div className="text-slate-900">{o.customerName || o.user?.name || "—"}</div>
+                    <div className="text-xs text-slate-500">{o.phone || o.user?.phone || "Телефон не указан"}</div>
+                    <div className="text-xs text-slate-400">{o.email || o.user?.email}</div>
                   </td>
                   <td className="py-3 pr-4 font-semibold text-amber-600">{o.total} ₽</td>
                   <td className="py-3 pr-4">
+                    <div className="mb-1 text-xs text-slate-400">
+                      {o.deliveryType === "courier" ? "Доставка" : "Самовывоз"} · {o.paymentType || "Оплата при получении"}
+                    </div>
                     <select
                       value={o.status}
                       disabled={updatingId === o.id}

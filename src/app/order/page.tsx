@@ -48,12 +48,16 @@ function formatPrice(value?: number) {
 }
 
 export default function OrderPage() {
-  const { items, itemCount, total } = useCart();
+  const { items, itemCount, total, clearCart } = useCart();
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("pickup");
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
-  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [accountCreated, setAccountCreated] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const [successCreatedAt, setSuccessCreatedAt] = useState<Date | null>(null);
+  const [submittedItems, setSubmittedItems] = useState<typeof items | null>(null);
+  const [submittedTotal, setSubmittedTotal] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
 
   const updateField = (field: keyof FormState, value: string) => {
@@ -68,31 +72,66 @@ export default function OrderPage() {
         ? "Банковской картой"
         : "Счёт для юрлица";
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitted(true);
-    const generatedId = Math.floor(100000 + Math.random() * 900000).toString();
-    setSuccessOrderId(generatedId);
-    setSuccessCreatedAt(new Date());
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items,
+          name: form.name,
+          phone: form.phone,
+          email: form.email,
+          city: form.city,
+          street: form.street,
+          house: form.house,
+          flat: form.flat,
+          comment: form.comment,
+          company: form.company,
+          inn: form.inn,
+          deliveryType,
+          paymentType,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Не удалось оформить заказ");
+
+      setSubmittedItems(items);
+      setSubmittedTotal(total);
+      setAccountCreated(Boolean(data.accountCreated));
+      setSuccessOrderId(data.order.number);
+      setSuccessCreatedAt(new Date(data.order.createdAt));
+      clearCart();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Не удалось оформить заказ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderSummary = () => {
-    if (items.length === 0) return null;
+    const summaryItems = submittedItems ?? items;
+    const summaryTotal = submittedTotal ?? total;
+    if (summaryItems.length === 0) return null;
     return (
       <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Ваш заказ</p>
         <div className="mt-4 space-y-3 text-sm text-slate-600">
           <div className="flex items-center justify-between">
             <span>Позиций</span>
-            <span className="font-semibold text-slate-900">{items.length}</span>
+            <span className="font-semibold text-slate-900">{summaryItems.length}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Товаров</span>
-            <span className="font-semibold text-slate-900">{itemCount}</span>
+            <span className="font-semibold text-slate-900">{summaryItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
           </div>
           <div className="flex items-center justify-between border-t border-slate-100 pt-3">
             <span className="text-base font-semibold text-slate-900">Итого</span>
-            <span className="text-2xl font-bold text-slate-900">{formatPrice(total)}</span>
+            <span className="text-2xl font-bold text-slate-900">{formatPrice(summaryTotal)}</span>
           </div>
         </div>
         <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-xs text-amber-900">
@@ -129,8 +168,13 @@ export default function OrderPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Заказ сформирован</p>
             <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl">Спасибо! Мы приняли заявку</h1>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-500">
-              Номер заказа <span className="font-semibold text-slate-900">№{successOrderId}</span>. Мы свяжемся, как только проверим наличие и подтвердим доставку. Информация об оплате появится в вашем личном кабинете, а пока вы можете проверить состав заказа ниже.
+              Номер заказа <span className="font-semibold text-slate-900">№{successOrderId}</span>. Мы свяжемся, как только проверим наличие и подтвердим доставку. Информация о заказе сохранена в базе данных.
             </p>
+            {accountCreated && (
+              <p className="mt-3 max-w-3xl rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Для вас создана запись покупателя по указанному телефону. Чтобы открыть заказы в личном кабинете, завершите регистрацию с этим телефоном.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -151,7 +195,7 @@ export default function OrderPage() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900">₽</div>
                   <div>
                     <p className="font-semibold text-slate-900">Онлайн-оплата будет подключена позже</p>
-                    <p className="text-xs text-slate-500">Сумма к оплате: {formatPrice(total)}</p>
+                    <p className="text-xs text-slate-500">Сумма к оплате: {formatPrice(submittedTotal ?? total)}</p>
                   </div>
                 </div>
                 <p className="mt-4 text-xs leading-6 text-slate-500">
@@ -261,9 +305,9 @@ export default function OrderPage() {
 
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {submitted && (
-              <div className="rounded-[28px] border border-emerald-200 bg-emerald-50 px-6 py-5 text-sm leading-6 text-emerald-900 shadow-sm">
-                Форма заказа заполнена. Визуальная часть оформления готова; на следующем шаге можно подключить отправку заказа в CRM, Telegram, email или МойСклад.
+            {submitError && (
+              <div className="rounded-[28px] border border-red-200 bg-red-50 px-6 py-5 text-sm leading-6 text-red-900 shadow-sm">
+                {submitError}
               </div>
             )}
 
@@ -464,9 +508,10 @@ export default function OrderPage() {
               </div>
               <button
                 type="submit"
-                className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                disabled={isSubmitting}
+                className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Подтвердить оформление
+                {isSubmitting ? "Создаём заказ..." : "Подтвердить оформление"}
               </button>
             </section>
           </form>
