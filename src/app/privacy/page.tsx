@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-const Mark = ({ children }: { children: React.ReactNode }) => <span className="font-semibold text-red-600">{children}</span>;
-
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-[#f6f3ee] px-6 py-16 text-slate-900">
@@ -16,7 +14,7 @@ export default function PrivacyPage() {
 
         <div className="mt-8 space-y-8 text-base leading-8 text-slate-600">
           <p>
-            Настоящая Политика конфиденциальности (далее – Политика) действует в отношении всей информации, которую ООО «ДробМашЦентр» (далее – Оператор) может получить о пользователях сайта <Mark>[Адрес вашего сайта]</Mark> (далее – Сайт).
+            Настоящая Политика конфиденциальности (далее – Политика) действует в отношении всей информации, которую ООО «ДробМашЦентр» (далее – Оператор) может получить о пользователях сайта <span className="font-semibold text-slate-900">marketdomstroy.ru</span> (далее – Сайт).
           </p>
 
           <section>

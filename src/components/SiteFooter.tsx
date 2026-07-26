@@ -70,6 +70,22 @@ export default function SiteFooter() {
             <a href="mailto:domstroy.dmd@mail.ru" className="hover:text-amber-600">
               domstroy.dmd@mail.ru
             </a>
+            <a
+              href="https://vk.ru/domstroy_market"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-amber-600"
+            >
+              Мы в Вконтакте
+            </a>
+            <a
+              href="https://t.me/domstroy_market"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-amber-600"
+            >
+              Мы в Телеграмме
+            </a>
           </div>
         </div>
       </div>

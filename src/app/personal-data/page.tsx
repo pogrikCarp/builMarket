@@ -1,7 +1,4 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-
-const Mark = ({ children }: { children: ReactNode }) => <span className="font-semibold text-red-600">{children}</span>;
 
 const tableClass = "mt-4 w-full min-w-[720px] border-collapse text-left text-sm";
 const thClass = "border border-slate-200 bg-amber-50 px-4 py-3 font-semibold text-slate-900";
@@ -27,7 +24,7 @@ export default function PersonalDataPage() {
           <section>
             <h2 className="text-2xl font-semibold text-slate-900">1. Общие положения</h2>
             <p className="mt-4">1.1. Настоящая Политика является официальным документом Оператора и обязательна для исполнения всеми сотрудниками Оператора.</p>
-            <p>1.2. Политика применяется ко всем персональным данным, которые Оператор получает от Пользователей сайта <Mark>[Адрес вашего сайта]</Mark> (далее – Сайт).</p>
+            <p>1.2. Политика применяется ко всем персональным данным, которые Оператор получает от Пользователей сайта <span className="font-semibold text-slate-900">marketdomstroy.ru</span> (далее – Сайт).</p>
             <p>1.3. Используя Сайт, Пользователь даёт своё согласие на обработку своих персональных данных в порядке, описанном в настоящей Политике.</p>
           </section>
 

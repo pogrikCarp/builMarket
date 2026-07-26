@@ -183,7 +183,29 @@ export default function ContactsPage() {
                 </ul>
               </div>
 
-              <div className={missingDataClass}>Нужны ссылки на ВКонтакте и Telegram</div>
+              <div className="rounded-[28px] border border-amber-100 bg-white p-6 shadow-sm md:p-7">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Мы в соцсетях</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <a
+                    href="https://vk.ru/domstroy_market"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3.5 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-400 hover:bg-amber-100"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 48 48" fill="currentColor"><path d="M41.2 13.6c.3-1 0-1.6-1.3-1.6h-4.4c-1.1 0-1.6.6-1.9 1.2 0 0-2.2 5.5-5.4 9-1 1-1.5 1.4-2.1 1.4-.3 0-.7-.4-.7-1.4V13.6c0-1.1-.3-1.6-1.2-1.6h-6.9c-.7 0-1.1.5-1.1 1 0 1.1 1.6 1.3 1.7 4.3v6.5c0 1.4-.3 1.7-.8 1.7-1.5 0-5.1-5.5-7.2-11.8-.4-1.2-.9-1.7-2-1.7H4.5c-1.2 0-1.5.6-1.5 1.2 0 1.1 1.5 6.7 7 14.1C13.7 33.3 19.4 36 24.6 36c3.2 0 3.6-.7 3.6-1.8v-4c0-1.2.3-1.5 1.1-1.5.6 0 1.7.3 4.2 2.8 2.9 2.9 3.3 4.5 4.9 4.5h4.4c1.2 0 1.8-.6 1.5-1.8-.4-1.2-1.8-2.9-3.6-4.9-1-1.2-2.5-2.4-3-3.1-.6-.8-.4-1.1 0-1.8 0 0 5.2-7.4 5.5-9.8z"/></svg>
+                    ВКонтакте
+                  </a>
+                  <a
+                    href="https://t.me/domstroy_market"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3.5 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-400 hover:bg-amber-100"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                    Telegram
+                  </a>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col gap-3">
