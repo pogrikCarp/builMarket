@@ -97,13 +97,16 @@ export default function ContactsPage() {
                   <address className="mt-3 not-italic text-sm leading-6 text-slate-700">
                     Верхняя улица, 15/1, деревня Кутузово, городской округ Домодедово, Московская область
                   </address>
+                  <div className={missingDataClass}>
+                    Нужна информация для адреса центрального офиса, подписания договоров и т. д.
+                  </div>
                 </div>
                 <div className="rounded-3xl bg-[#f8f4ed] p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Юридическое лицо</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-700">ООО «ДомСтрой»</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">ООО «ДробМашЦентр»</p>
                   <p className="mt-2 text-sm leading-6 text-slate-700">ИНН 5009073556 / КПП 500901001</p>
                   <p className="mt-2 text-sm leading-6 text-slate-700">ОГРН 1105009000898 / ОКВЭД 51.6 / ОКПО 63579656</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Верхняя улица, 15/1, деревня Кутузово, городской округ Домодедово, Московская область</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">142030, Московская область, г.о. Домодедово, с/п Ям, ул. 1-я Зеленовка, д. 39</p>
                 </div>
               </div>
             </div>

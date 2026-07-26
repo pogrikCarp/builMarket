@@ -7,7 +7,7 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-[#f6f3ee] px-6 py-16 text-slate-900">
       <div className="mx-auto max-w-5xl rounded-[36px] bg-white/90 p-8 shadow-sm md:p-12">
         <Link href="/" className="text-xs font-semibold uppercase tracking-[0.4em] text-amber-600">
-          ← ДробМашЦентр
+          ← ДомСтрой
         </Link>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight">Политика конфиденциальности</h1>
         <p className="mt-3 text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
