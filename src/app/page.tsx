@@ -19,10 +19,10 @@ type HomeMedia = {
 
 const CONTACTS = {
   phones: [
-    { label: "+7 (937) 621-77-77", href: "tel:+79376217777" },
-    { label: "+7 (937) 621-77-77", href: "tel:+79376217777", note: "Звонок бесплатный" },
+    { label: "+7 916 004-55-22", href: "tel:+79160045522" },
+    { label: "+7 916 004-55-22", href: "tel:+79160045522", note: "Звонок бесплатный" },
   ],
-  email: { label: "info@domstroy.market", href: "mailto:info@domstroy.market" },
+  email: { label: "domstroy.dmd@mail.ru", href: "mailto:domstroy.dmd@mail.ru" },
 };
 
 const SOCIAL_LINKS: LinkItem[] = [

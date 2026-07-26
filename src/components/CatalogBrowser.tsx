@@ -296,7 +296,7 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
                     <span className="text-lg font-bold text-amber-600">{product.price}</span>
                     <span className="text-xs text-slate-400 line-through">{product.oldPrice}</span>
                   </div>
-                  <a href="tel:+79376217777" className="mt-4 rounded-lg bg-amber-500 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-amber-600">
+                  <a href="tel:+79160045522" className="mt-4 rounded-lg bg-amber-500 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-amber-600">
                     Заказать
                   </a>
                 </div>

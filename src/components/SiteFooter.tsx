@@ -64,11 +64,11 @@ export default function SiteFooter() {
         <div className="mt-10 flex flex-col gap-2 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
           <div>© {new Date().getFullYear()} ДомСтрой — комплексные поставки строительных материалов</div>
           <div className="flex flex-wrap items-center gap-3">
-            <a href="tel:+79376217777" className="hover:text-amber-600">
-              +7 (937) 621-77-77
+            <a href="tel:+79160045522" className="hover:text-amber-600">
+              +7 916 004-55-22
             </a>
-            <a href="mailto:drobmascentr@mail.ru" className="hover:text-amber-600">
-              drobmascentr@mail.ru
+            <a href="mailto:domstroy.dmd@mail.ru" className="hover:text-amber-600">
+              domstroy.dmd@mail.ru
             </a>
           </div>
         </div>

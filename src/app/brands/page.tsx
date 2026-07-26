@@ -96,7 +96,7 @@ export default async function BrandsPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <a
-                href="tel:+79376217777"
+                href="tel:+79160045522"
                 className="rounded-full bg-[#2d1c0d] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-amber-200 transition hover:bg-[#3a2614]"
               >
                 Связаться с отделом закупок
