@@ -74,6 +74,7 @@ jobs:
             --exclude ".next" \
             --exclude ".env" \
             --exclude "prisma/dev.db" \
+            --exclude "public/uploads" \
             -e "ssh -p ${SSH_PORT} -i ~/.ssh/id_ed25519" \
             ./ "${SSH_USER}@${SSH_HOST}:${APP_DIR}"
         env:
