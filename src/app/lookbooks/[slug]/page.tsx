@@ -29,7 +29,13 @@ export default async function LookbookPage({ params }: { params: Promise<{ slug:
             <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">{lookbook.title}</h1>
             <div className="mt-10 grid gap-8 md:grid-cols-[1fr_1.2fr] md:items-center">
               <div className="relative overflow-hidden rounded-3xl shadow-lg" style={{ aspectRatio: "0.62" }}>
-                <Image src={lookbook.image} alt={lookbook.title} fill className="object-cover" />
+                <Image
+                  src={lookbook.image}
+                  alt={lookbook.title}
+                  fill
+                  className="object-cover"
+                  style={{ objectPosition: lookbook.imagePosition ?? "center" }}
+                />
               </div>
               <div>
                 <p className="text-lg leading-8 text-slate-600">{lookbook.description}</p>

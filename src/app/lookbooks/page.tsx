@@ -31,7 +31,7 @@ export default function LookbooksPage() {
                   style={{
                     backgroundImage: `url(${lookbook.image})`,
                     backgroundSize: "cover",
-                    backgroundPosition: "center",
+                    backgroundPosition: lookbook.imagePosition ?? "center",
                     aspectRatio: "0.72",
                     minHeight: "320px",
                   }}

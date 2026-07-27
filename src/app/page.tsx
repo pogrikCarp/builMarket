@@ -45,6 +45,7 @@ const SETS = LOOKBOOKS.map((lookbook) => ({
   href: `/lookbooks/${lookbook.slug}`,
   accent: lookbook.accent,
   image: lookbook.image,
+  imagePosition: lookbook.imagePosition ?? "center",
 }));
 
 const BRAND_LINKS: LinkItem[] = [
@@ -919,7 +920,7 @@ export default function Home() {
                   style={{
                     backgroundImage: `url(${set.image})`,
                     backgroundSize: "cover",
-                    backgroundPosition: "center",
+                    backgroundPosition: set.imagePosition,
                     aspectRatio: "0.72",
                     minHeight: "320px",
                   }}

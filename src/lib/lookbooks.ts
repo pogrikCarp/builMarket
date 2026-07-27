@@ -3,10 +3,20 @@ export type Lookbook = {
   title: string;
   accent: string;
   image: string;
+  imagePosition?: string;
   description: string;
 };
 
 export const LOOKBOOKS: Lookbook[] = [
+  {
+    slug: "elektroinstrumenty",
+    title: "Электроинструменты, расходные материалы и средства малой механизации",
+    accent: "Электроинструменты",
+    image: "/banner4.png",
+    imagePosition: "80% center",
+    description:
+      "Аккумуляторные дрели-шуруповёрты, перфораторы, угловые шлифовальные машины и пилы для повседневных работ на объекте. Подбираем свёрла, диски, щётки и другие расходники, а также средства малой механизации под конкретную задачу.",
+  },
   {
     slug: "dobornye-elementy-dlya-saydinga",
     title: "Доборные элементы для сайдинга",
@@ -30,13 +40,5 @@ export const LOOKBOOKS: Lookbook[] = [
     image: "/card/card2.png",
     description:
       "Комплект для монтажа подвесного потолка: профили, подвесы, направляющие и крепёжные элементы. Подходит для жилых и коммерческих помещений.",
-  },
-  {
-    slug: "materialy-dlya-potolka-iz-gipsokartona",
-    title: "Комплектующие для потолка из гипсокартона",
-    accent: "Работы с ГКЛ",
-    image: "/card/card1.png",
-    description:
-      "Набор материалов для потолка из гипсокартона: листы ГКЛ, профиль, саморезы, серпянка и шпаклёвка. Всё необходимое для чистового монтажа.",
   },
 ];
