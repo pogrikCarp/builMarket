@@ -15,7 +15,7 @@ export default function LookbooksPage() {
             <p className="mt-8 text-sm uppercase tracking-[0.35em] text-amber-600">lookbooks</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">Готовые наборы материалов</h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-              Подобрали комплекты материалов под конкретные задачи — от сайдинга до подвесных потолков.
+              Готовые наборы аккумуляторных электроинструментов для стройки и ремонта — подберите комплект под задачу.
             </p>
           </div>
         </section>

@@ -84,7 +84,7 @@ export default function PrivacyPage() {
               <li>Отозвать своё согласие на обработку данных в любой момент.</li>
               <li>Подать жалобу в Роскомнадзор.</li>
             </ul>
-            <p className="mt-3">Для реализации прав необходимо направить запрос на электронную почту: drobkamen.serpuhov@yandex.ru.</p>
+            <p className="mt-3">Для реализации прав необходимо направить запрос на электронную почту: domstroy.dmd@mail.ru.</p>
           </section>
 
           <section>
@@ -104,8 +104,8 @@ export default function PrivacyPage() {
             <ul className="mt-3 space-y-2">
               <li>Название компании/ИП: ООО «НерудСтрой»</li>
               <li>Адрес: 142202, Московская обл., Серпуховский район, п. Мирный, д. 2А, офис 2</li>
-              <li>Электронная почта: drobkamen.serpuhov@yandex.ru</li>
-              <li>Телефон: <a href="tel:+79771070505" className="font-semibold text-amber-700 hover:underline">+7-977-107-05-05</a></li>
+              <li>Электронная почта: domstroy.dmd@mail.ru</li>
+              <li>Телефон: <a href="tel:+79160045522" className="font-semibold text-amber-700 hover:underline">+7 916 004-55-22</a></li>
             </ul>
           </section>
         </div>
