@@ -45,7 +45,7 @@ const SETS = LOOKBOOKS.map((lookbook) => ({
   href: `/lookbooks/${lookbook.slug}`,
   accent: lookbook.accent,
   image: lookbook.image,
-  imagePosition: lookbook.imagePosition ?? "center",
+  imagePosition: lookbook.imagePosition ?? "top",
 }));
 
 const BRAND_LINKS: LinkItem[] = [
@@ -919,8 +919,10 @@ export default function Home() {
                   className="group premium-card relative overflow-hidden rounded-2xl shadow-[0_20px_45px_rgba(0,0,0,0.18)] transition hover:-translate-y-1"
                   style={{
                     backgroundImage: `url(${set.image})`,
-                    backgroundSize: "cover",
+                    backgroundColor: "#0b0907",
+                    backgroundSize: "120%",
                     backgroundPosition: set.imagePosition,
+                    backgroundRepeat: "no-repeat",
                     aspectRatio: "0.72",
                     minHeight: "320px",
                   }}

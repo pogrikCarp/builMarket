@@ -30,8 +30,10 @@ export default function LookbooksPage() {
                   className="group relative overflow-hidden rounded-2xl shadow-[0_20px_45px_rgba(0,0,0,0.18)] transition hover:-translate-y-1"
                   style={{
                     backgroundImage: `url(${lookbook.image})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: lookbook.imagePosition ?? "center",
+                    backgroundColor: "#0b0907",
+                    backgroundSize: "120%",
+                    backgroundPosition: lookbook.imagePosition ?? "top",
+                    backgroundRepeat: "no-repeat",
                     aspectRatio: "0.72",
                     minHeight: "320px",
                   }}
