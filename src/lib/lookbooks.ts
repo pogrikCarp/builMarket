@@ -10,7 +10,7 @@ export type Lookbook = {
 export const LOOKBOOKS: Lookbook[] = [
   {
     slug: "elektroinstrumenty",
-    title: "Электроинструменты, расходные материалы и средства малой механизации",
+    title: "Электроинструменты и расходные материалы",
     accent: "Электроинструменты",
     image: "/banner4-light.png",
     imagePosition: "80% center",
