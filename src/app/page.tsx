@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import CartButton from "@/components/cart/CartButton";
 import { LOOKBOOKS } from "@/lib/lookbooks";
 import SiteFooter from "@/components/SiteFooter";
@@ -462,49 +462,109 @@ const CONTENT_CONTAINER = "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8";
 
 const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const isSwipeRef = useRef(false);
   const activeSlide = slides[activeIndex] ?? slides[0];
 
   const goPrev = () => setActiveIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   const goNext = () => setActiveIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleResize = () => setContainerWidth(container.clientWidth);
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(container);
+    handleResize();
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setActiveIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
     }, 7000);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [slides.length, activeIndex]);
+
+  const handleTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    isSwipeRef.current = false;
+    setIsDragging(true);
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const deltaX = e.touches[0].clientX - touchStartXRef.current;
+    const deltaY = e.touches[0].clientY - touchStartYRef.current;
+    if (!isSwipeRef.current && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 6) {
+      isSwipeRef.current = true;
+    }
+    if (isSwipeRef.current) {
+      setDragOffset(deltaX);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const threshold = Math.max(48, containerWidth * 0.12);
+    if (dragOffset <= -threshold) {
+      goNext();
+    } else if (dragOffset >= threshold) {
+      goPrev();
+    }
+    setIsDragging(false);
+    setDragOffset(0);
+  };
 
   const arrowButtonBase =
-    "absolute top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-sm border border-white/40 bg-black/40 text-white text-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100";
+    "absolute top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-sm border border-white/40 bg-black/40 text-white text-lg opacity-80 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100";
 
   return (
     <section className="relative w-full overflow-hidden">
-      <div className="group relative h-[320px] w-full overflow-hidden bg-slate-900 sm:h-[420px] md:h-[520px] lg:h-[600px]">
-        {slides.map((slide, idx) => (
-          <Image
-            key={slide.id}
-            src={slide.image}
-            alt={slide.brand}
-            fill
-            priority={idx === 0}
-            quality={100}
-            sizes="100vw"
-            className={`object-cover transition-opacity duration-1000 ease-in-out ${
-              idx === activeIndex ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        ))}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
+      <div
+        ref={containerRef}
+        className="group relative h-[320px] w-full touch-pan-y select-none overflow-hidden bg-slate-900 sm:h-[420px] md:h-[520px] lg:h-[600px]"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div
+          className="flex h-full w-full"
+          style={{
+            transform: `translate3d(${-activeIndex * containerWidth + dragOffset}px, 0, 0)`,
+            transition: isDragging ? "none" : "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          {slides.map((slide, idx) => (
+            <div key={slide.id} className="relative h-full w-full shrink-0">
+              <Image
+                src={slide.image}
+                alt={slide.brand}
+                fill
+                priority={idx === 0}
+                quality={100}
+                sizes="100vw"
+                draggable={false}
+                className="object-cover"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
 
-
-        <button type="button" onClick={goPrev} className={`${arrowButtonBase} -left-12 group-hover:left-4 md:group-hover:left-6`} aria-label="Предыдущий слайд">
+        <button type="button" onClick={goPrev} className={`${arrowButtonBase} left-2 sm:-left-12 sm:group-hover:left-4 md:sm:group-hover:left-6`} aria-label="Предыдущий слайд">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <button type="button" onClick={goNext} className={`${arrowButtonBase} -right-12 group-hover:right-4 md:group-hover:right-6`} aria-label="Следующий слайд">
+        <button type="button" onClick={goNext} className={`${arrowButtonBase} right-2 sm:-right-12 sm:group-hover:right-4 md:sm:group-hover:right-6`} aria-label="Следующий слайд">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
         </button>
 
-        <div className="absolute inset-0">
+        <div className="pointer-events-none absolute inset-0">
           <div className="mx-auto flex h-full w-full max-w-7xl items-center px-4">
             <div className="flex flex-1 flex-col items-start justify-end pb-8 text-white md:items-center md:justify-center md:pl-[42%] md:text-center md:pb-0 lg:pl-[48%] xl:pl-[52%]">
               <div key={`cap-${activeIndex}`} className="fade-in-up">
