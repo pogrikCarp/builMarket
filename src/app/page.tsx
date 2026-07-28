@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import CartButton from "@/components/cart/CartButton";
 import { LOOKBOOKS } from "@/lib/lookbooks";
+import { buildFolderTree } from "@/lib/folder-tree";
 import SiteFooter from "@/components/SiteFooter";
 import { PROMO_PRODUCTS } from "@/lib/promo-products";
 
@@ -212,39 +213,11 @@ type MsFolder = {
   productFolder?: { meta: { href: string } };
 };
 
-const splitPath = (value?: string) => {
-  if (!value) return [] as string[];
-  return value
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-};
-
-const getFolderSegments = (folder: MsFolder) => [...splitPath(folder.pathName), folder.name].filter(Boolean);
-
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\u0400-\u04FF]+/gi, "-")
-    .replace(/^-+|-+$/g, "") || "group";
-
-const getGroupNameFromFolder = (folder: MsFolder) => {
-  const segments = getFolderSegments(folder);
-  if (segments.length >= 2) return segments[segments.length - 2];
-  return segments[0] ?? folder.name;
-};
-
 type FolderGroup = {
   id: string;
   title: string;
-  rootFolders: MsFolder[];
-  subfolders: MsFolder[];
-};
-
-const getLeafName = (folder: MsFolder) => {
-  const segments = getFolderSegments(folder);
-  return segments[segments.length - 1] ?? folder.name;
+  folder: MsFolder;
+  children: MsFolder[];
 };
 
 const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
@@ -252,50 +225,24 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
 
-  const leafFolders = useMemo(() => {
-    const parentHrefs = new Set(
-      folders
-        .map((folder) => folder.productFolder?.meta.href)
-        .filter((href): href is string => Boolean(href))
-    );
-    return folders.filter((folder) => !parentHrefs.has(folder.meta.href));
-  }, [folders]);
+  // Каждый корневой раздел МойСклад становится группой в левом меню,
+  // а его подкатегории (найденные по ссылке productFolder.meta.href) — подпунктами справа.
+  const { roots, childrenByParent } = useMemo(() => buildFolderTree(folders), [folders]);
 
-  const groups = useMemo<FolderGroup[]>(() => {
-    if (!leafFolders.length) return [];
-    const map = new Map<string, FolderGroup>();
-    leafFolders.forEach((folder) => {
-      const groupName = getGroupNameFromFolder(folder);
-      const groupId = slugify(groupName);
-      if (!map.has(groupId)) {
-        map.set(groupId, {
-          id: groupId,
-          title: groupName,
-          rootFolders: [],
-          subfolders: [],
-        });
-      }
-      const entry = map.get(groupId)!;
-      const segments = getFolderSegments(folder);
-      if (segments.length <= 1) {
-        entry.rootFolders.push(folder);
-      } else {
-        entry.subfolders.push(folder);
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title, "ru"));
-  }, [leafFolders]);
+  const groups = useMemo<FolderGroup[]>(
+    () =>
+      roots
+        .map((root) => ({
+          id: root.id,
+          title: root.name,
+          folder: root,
+          children: (childrenByParent.get(root.meta.href) ?? []).slice().sort((a, b) => a.name.localeCompare(b.name, "ru")),
+        }))
+        .sort((a, b) => a.title.localeCompare(b.title, "ru")),
+    [roots, childrenByParent]
+  );
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupId) ?? null, [groups, activeGroupId]);
-
-  const subgroupBuckets = useMemo(() => {
-    if (!activeGroup) return [] as { title: string; folders: MsFolder[] }[];
-    const foldersToShow = activeGroup.subfolders.length ? activeGroup.subfolders : activeGroup.rootFolders;
-    return foldersToShow
-      .slice()
-      .sort((a, b) => getLeafName(a).localeCompare(getLeafName(b), "ru"))
-      .map((folder) => ({ title: getLeafName(folder), folders: [folder] }));
-  }, [activeGroup]);
 
   useEffect(() => {
     if (!groups.length) return;
@@ -400,43 +347,33 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
                   </div>
                 </div>
                 <div className="mt-6 max-h-[calc(100vh-14rem)] overflow-y-auto pr-2">
-                  {subgroupBuckets.length ? (
-                    <div className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {subgroupBuckets.map((bucket) => {
-                        const uniqueFolders = bucket.folders.filter((folder, index, list) =>
-                          list.findIndex((entry) => getLeafName(entry) === getLeafName(folder)) === index
-                        );
-                        if (uniqueFolders.length === 1 && getLeafName(uniqueFolders[0]) === bucket.title) {
-                          const folder = uniqueFolders[0];
-                          return (
-                            <Link
-                              key={folder.id}
-                              href={getFolderHref(folder)}
-                              onClick={onClose}
-                              className="block text-base font-semibold leading-snug text-slate-900 transition hover:text-amber-600"
-                            >
-                              {bucket.title}
-                            </Link>
-                          );
-                        }
-                        return (
-                          <div key={bucket.title}>
-                            <p className="text-base font-semibold text-slate-900">{bucket.title}</p>
-                            <div className="mt-3 flex flex-col gap-2">
-                              {uniqueFolders.map((folder) => (
-                                <Link
-                                  key={folder.id}
-                                  href={getFolderHref(folder)}
-                                  onClick={onClose}
-                                  className="text-sm leading-snug text-slate-500 transition hover:text-amber-600"
-                                >
-                                  {getLeafName(folder)}
-                                </Link>
-                              ))}
-                            </div>
+                  {activeGroup ? (
+                    <div className="flex flex-col gap-6">
+                      <Link
+                        href={getFolderHref(activeGroup.folder)}
+                        onClick={onClose}
+                        className="inline-flex items-center gap-2 text-base font-semibold text-slate-900 transition hover:text-amber-600"
+                      >
+                        Все товары раздела «{activeGroup.title}»
+                        <span aria-hidden>→</span>
+                      </Link>
+                      {activeGroup.children.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-400">Подкатегории</p>
+                          <div className="mt-3 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {activeGroup.children.map((child) => (
+                              <Link
+                                key={child.id}
+                                href={getFolderHref(child)}
+                                onClick={onClose}
+                                className="text-sm leading-snug text-slate-500 transition hover:text-amber-600"
+                              >
+                                {child.name}
+                              </Link>
+                            ))}
                           </div>
-                        );
-                      })}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm text-slate-400">Для этой группы пока нет подгрупп</p>
@@ -522,7 +459,7 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
   };
 
   const arrowButtonBase =
-    "absolute top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-sm border border-white/40 bg-black/40 text-white text-lg opacity-80 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100";
+    "absolute top-1/2 z-30 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-sm border border-white/40 bg-black/40 text-white text-lg opacity-0 transition-opacity duration-300 sm:flex sm:group-hover:opacity-100";
 
   return (
     <section className="relative w-full overflow-hidden">
@@ -557,10 +494,10 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
         </div>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
 
-        <button type="button" onClick={goPrev} className={`${arrowButtonBase} left-2 sm:-left-12 sm:group-hover:left-4 md:sm:group-hover:left-6`} aria-label="Предыдущий слайд">
+        <button type="button" onClick={goPrev} className={`${arrowButtonBase} sm:-left-12 sm:group-hover:left-4 md:group-hover:left-6`} aria-label="Предыдущий слайд">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <button type="button" onClick={goNext} className={`${arrowButtonBase} right-2 sm:-right-12 sm:group-hover:right-4 md:sm:group-hover:right-6`} aria-label="Следующий слайд">
+        <button type="button" onClick={goNext} className={`${arrowButtonBase} sm:-right-12 sm:group-hover:right-4 md:group-hover:right-6`} aria-label="Следующий слайд">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
         </button>
 

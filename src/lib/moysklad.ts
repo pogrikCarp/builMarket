@@ -97,7 +97,7 @@ export async function getAssortment(
 
   const res = await fetch(url, {
     headers: getAuthHeaders(),
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -117,19 +117,35 @@ export async function getProductById(id: string): Promise<MoyskladAssortmentItem
 }
 
 export async function getProductFolders(): Promise<MoyskladProductFolderResponse> {
-  const params = new URLSearchParams();
-  params.append("limit", "100");
-  params.append("order", "name,asc");
-  params.append("expand", "productFolder");
-  const url = buildUrl("/entity/productfolder", params);
-  const res = await fetch(url, {
-    headers: getAuthHeaders(),
-    next: { revalidate: 300 },
-  });
-  if (!res.ok) {
-    throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
+  const limit = 1000;
+  let offset = 0;
+  const rows: MoyskladProductFolder[] = [];
+  let total = Infinity;
+
+  while (offset < total) {
+    const params = new URLSearchParams();
+    params.append("limit", String(limit));
+    params.append("offset", String(offset));
+    params.append("order", "name,asc");
+    params.append("expand", "productFolder");
+    const url = buildUrl("/entity/productfolder", params);
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
+    }
+    const page: MoyskladProductFolderResponse = await res.json();
+    rows.push(...page.rows);
+    total = page.meta.size;
+    offset += limit;
   }
-  return res.json();
+
+  return {
+    rows,
+    meta: { size: rows.length, limit, offset: 0 },
+  };
 }
 
 export async function getAssortmentByFolder(
@@ -140,12 +156,14 @@ export async function getAssortmentByFolder(
   const params = new URLSearchParams();
   params.append("limit", String(limit));
   params.append("offset", String(offset));
-  params.append("filter", `productFolder=${folderHref}`);
+  // withSubFolders=true (значение по умолчанию в МойСклад, но задаём явно) гарантирует,
+  // что при выборе раздела в выдачу попадут и товары всех его подкатегорий.
+  params.append("filter", `productFolder=${folderHref};withSubFolders=true`);
   params.append("expand", "productFolder,productFolder.productFolder");
   const url = buildUrl("/entity/assortment", params);
   const res = await fetch(url, {
     headers: getAuthHeaders(),
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
   if (!res.ok) {
     throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);

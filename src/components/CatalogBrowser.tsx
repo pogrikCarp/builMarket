@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 import type { MoyskladAssortmentItem, MoyskladProductFolder } from "@/lib/moysklad";
+import { buildFolderTree, getRootOfFolder } from "@/lib/folder-tree";
 import { PROMO_PRODUCTS } from "@/lib/promo-products";
 
 function formatPrice(value?: number) {
@@ -60,6 +61,12 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
     () => (initialFolderId ? folders.find((folder) => folder.id === initialFolderId) ?? null : null),
     [folders, initialFolderId]
   );
+  const { roots: rootFolders, childrenByParent } = useMemo(() => buildFolderTree(folders), [folders]);
+  const [expandedRootId, setExpandedRootId] = useState<string | null>(() => {
+    if (!initialFolder) return null;
+    const root = getRootOfFolder(initialFolder, rootFolders, childrenByParent);
+    return root?.id ?? null;
+  });
   const [activeFolder, setActiveFolder] = useState<MoyskladProductFolder | null>(initialFolder);
   const [activeSection, setActiveSection] = useState<CatalogSection>(
     initialFolder ? "folder" : initialSection
@@ -115,11 +122,13 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
     }
   }, []);
 
-  const handleFolderClick = (folder: MoyskladProductFolder) => {
+  const handleFolderClick = (folder: MoyskladProductFolder, rootId?: string) => {
     setActiveSection("folder");
     setActiveFolder(folder);
+    setExpandedRootId(rootId ?? folder.id);
     loadByFolder(folder);
   };
+
 
   const handleShowAll = () => {
     if (abortRef.current) abortRef.current.abort();
@@ -171,38 +180,63 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
     <div className="flex min-h-[400px] flex-col md:flex-row md:gap-0">
       {/* Sidebar групп — горизонтальный скролл на мобильных, вертикальный на md+ */}
       <aside className="w-full shrink-0 border-b border-slate-200 bg-white md:w-56 md:border-b-0 md:border-r lg:w-64">
-        {/* Мобильный вид: горизонтальные кнопки-чипы */}
-        <div className="flex gap-2 overflow-x-auto px-3 py-3 md:hidden">
-          <button
-            type="button"
-            onClick={handleShowAll}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              activeSection === "all" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            Все
-          </button>
-          <button
-            type="button"
-            onClick={handleShowPromo}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              activeSection === "promo" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700"
-            }`}
-          >
-            Акции
-          </button>
-          {folders.map((folder) => (
+        {/* Мобильный вид: горизонтальные кнопки-чипы, подкатегории раскрываются под выбранным разделом */}
+        <div className="border-b border-slate-100 md:hidden">
+          <div className="flex gap-2 overflow-x-auto px-3 py-3">
             <button
-              key={folder.id}
               type="button"
-              onClick={() => handleFolderClick(folder)}
+              onClick={handleShowAll}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                activeSection === "folder" && activeFolder?.id === folder.id ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
+                activeSection === "all" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
               }`}
             >
-              {folder.name}
+              Все
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={handleShowPromo}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                activeSection === "promo" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              Акции
+            </button>
+            {rootFolders.map((folder) => {
+              const children = childrenByParent.get(folder.meta.href) ?? [];
+              const isActiveRoot = activeSection === "folder" && activeFolder?.id === folder.id;
+              return (
+                <button
+                  key={folder.id}
+                  type="button"
+                  onClick={() => handleFolderClick(folder, folder.id)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    isActiveRoot || expandedRootId === folder.id ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {folder.name}
+                  {children.length > 0 && <span className="ml-1 opacity-70">▾</span>}
+                </button>
+              );
+            })}
+          </div>
+          {expandedRootId && (childrenByParent.get(rootFolders.find((r) => r.id === expandedRootId)?.meta.href ?? "")?.length ?? 0) > 0 && (
+            <div className="flex gap-2 overflow-x-auto border-t border-slate-100 bg-slate-50 px-3 py-2.5">
+              {(childrenByParent.get(rootFolders.find((r) => r.id === expandedRootId)?.meta.href ?? "") ?? []).map((child) => (
+                <button
+                  key={child.id}
+                  type="button"
+                  onClick={() => handleFolderClick(child, expandedRootId)}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                    activeSection === "folder" && activeFolder?.id === child.id
+                      ? "bg-amber-500 text-white"
+                      : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200"
+                  }`}
+                >
+                  {child.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {/* Десктоп: вертикальный список */}
         <div className="sticky top-16 hidden md:block">
@@ -242,24 +276,47 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
                 Акции
               </button>
             </li>
-            {folders.map((folder) => (
-              <li key={folder.id}>
-                <button
-                  type="button"
-                  onClick={() => handleFolderClick(folder)}
-                  className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
-                    activeSection === "folder" && activeFolder?.id === folder.id
-                      ? "bg-amber-50 font-semibold text-amber-700"
-                      : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-                  </svg>
-                  <span className="leading-tight">{folder.name}</span>
-                </button>
-              </li>
-            ))}
+            {rootFolders.map((folder) => {
+              const children = childrenByParent.get(folder.meta.href) ?? [];
+              return (
+                <li key={folder.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleFolderClick(folder, folder.id)}
+                    className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
+                      activeSection === "folder" && activeFolder?.id === folder.id
+                        ? "bg-amber-50 font-semibold text-amber-700"
+                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                    </svg>
+                    <span className="leading-tight">{folder.name}</span>
+                  </button>
+                  {children.length > 0 && (
+                    <ul className="border-l border-slate-100 pb-1 pl-4">
+                      {children.map((child) => (
+                        <li key={child.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleFolderClick(child, folder.id)}
+                            className={`flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] transition ${
+                              activeSection === "folder" && activeFolder?.id === child.id
+                                ? "font-semibold text-amber-700"
+                                : "text-slate-500 hover:text-slate-900"
+                            }`}
+                          >
+                            <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+                            <span className="leading-tight">{child.name}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       </aside>
