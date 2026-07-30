@@ -60,6 +60,24 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
+      # ВРЕМЕННЫЙ диагностический шаг: проверяет, что приватный ключ из секрета
+      # SSH_KEY валиден, и печатает соответствующий публичный ключ (не секретный),
+      # чтобы свериться с authorized_keys на сервере. Удалить после диагностики.
+      - name: Debug SSH key format
+        run: |
+          echo "--- Проверка формата приватного ключа ---"
+          if ssh-keygen -y -f ~/.ssh/id_ed25519 > /tmp/derived_pub.txt; then
+            echo "Ключ валиден. Публичный ключ, соответствующий приватному из секрета SSH_KEY:"
+            cat /tmp/derived_pub.txt
+          else
+            echo "ОШИБКА: приватный ключ из секрета SSH_KEY невалиден (не парсится ssh-keygen)."
+            echo "Скорее всего, при копировании в GitHub Secrets ключ обрезался или переносы строк побились."
+            exit 1
+          fi
+          echo "--- Попытка подключения с подробным выводом ---"
+          ssh -vvv -o BatchMode=yes -o ConnectTimeout=10 -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "echo OK" || true
+
       - name: Ensure remote project directory
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
