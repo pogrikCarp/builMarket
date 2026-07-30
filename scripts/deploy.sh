@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Идемпотентный деплой-скрипт buildmarket/domstroy.
-# Безопасен для повторного запуска, не трогает другие процессы/сервисы на сервере
-# (кроме управления собственным systemd-юнитом ${SERVICE_NAME}).
+# Безопасен для повторного запуска. Управляет собственным systemd-юнитом
+# ${SERVICE_NAME}, а также ставит/настраивает nginx (реверс-прокси на порт 80)
+# и PostgreSQL - другие процессы/сервисы на сервере не затрагивает.
 set -euo pipefail
 
 APP_DIR="/opt/domstroy"
@@ -123,6 +124,41 @@ SQL
   fi
 }
 
+ensure_nginx() {
+  if ! command -v nginx >/dev/null 2>&1; then
+    log "Установка nginx"
+    apt-get update -y
+    apt-get install -y nginx
+  fi
+
+  local site_path="/etc/nginx/sites-available/${SERVICE_NAME}"
+  if [ ! -f "$site_path" ] || ! cmp -s "$APP_DIR/deploy/domstroy.nginx.conf" "$site_path"; then
+    log "Установка/обновление конфигурации nginx для ${SERVICE_NAME}"
+    cp "$APP_DIR/deploy/domstroy.nginx.conf" "$site_path"
+    ln -sf "$site_path" "/etc/nginx/sites-enabled/${SERVICE_NAME}"
+  fi
+
+  if [ -f /etc/nginx/sites-enabled/default ]; then
+    log "Отключение дефолтной заглушки nginx (конфликтует с портом 80)"
+    rm -f /etc/nginx/sites-enabled/default
+  fi
+
+  if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+    log "Открытие порта 80/tcp в ufw"
+    ufw allow 80/tcp >/dev/null 2>&1 || true
+  fi
+
+  log "Проверка конфигурации nginx"
+  nginx -t
+
+  systemctl enable nginx >/dev/null 2>&1 || true
+  if systemctl is-active --quiet nginx; then
+    systemctl reload nginx
+  else
+    systemctl restart nginx
+  fi
+}
+
 build_application() {
   cd "$APP_DIR"
   log "Установка npm-зависимостей (npm ci)"
@@ -178,6 +214,7 @@ ensure_env_file
 ensure_dependencies
 check_port_conflict
 ensure_postgres
+ensure_nginx
 build_application
 ensure_admin_user
 install_service
