@@ -124,6 +124,30 @@ SQL
   fi
 }
 
+ensure_mtu_workaround() {
+  # У некоторых VDS-провайдеров реальный MTU по пути в интернет меньше, чем
+  # заявлен на сетевом интерфейсе, а ICMP "нужна фрагментация" фильтруется -
+  # из-за этого крупные "цельные" ответы nginx теряются ("MTU black hole"),
+  # хотя мелкие запросы/TCP-хендшейк проходят нормально. Обходим это,
+  # принудительно подрезая MSS в исходящих SYN/SYN-ACK пакетах.
+  if ! command -v iptables >/dev/null 2>&1; then
+    return
+  fi
+
+  if ! iptables -t mangle -C OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null; then
+    log "Добавление правила TCPMSS clamp (обход проблемы MTU у провайдера)"
+    iptables -t mangle -A OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+  fi
+
+  if ! command -v netfilter-persistent >/dev/null 2>&1; then
+    log "Установка iptables-persistent, чтобы правило сохранялось после перезагрузки"
+    echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
+    echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
+    DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+  fi
+  netfilter-persistent save >/dev/null 2>&1 || true
+}
+
 ensure_nginx() {
   if ! command -v nginx >/dev/null 2>&1; then
     log "Установка nginx"
@@ -214,6 +238,7 @@ ensure_env_file
 ensure_dependencies
 check_port_conflict
 ensure_postgres
+ensure_mtu_workaround
 ensure_nginx
 build_application
 ensure_admin_user
