@@ -34,7 +34,13 @@ export default function ProductCartControl({ item, size = "sm" }: Props) {
         type="button"
         onClick={(event) => {
           event.preventDefault();
-          addItem(item);
+          addItem({
+            id: item.id,
+            name: item.name,
+            article: item.article,
+            code: item.code,
+            price: item.salePrices?.[0]?.value,
+          });
         }}
         className={
           isSmall

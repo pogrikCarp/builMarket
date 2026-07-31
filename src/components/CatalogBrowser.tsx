@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductCartControl from "@/components/cart/ProductCartControl";
+import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import type { MoyskladAssortmentItem, MoyskladProductFolder } from "@/lib/moysklad";
 import { formatAttributeValue, getItemThumbnailUrl } from "@/lib/moysklad-format";
 import { buildFolderTree, getRootOfFolder } from "@/lib/folder-tree";
@@ -610,7 +611,13 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
                     className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow-md"
                   >
                     <div>
-                      <div className="mb-4 overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-slate-200">
+                      <div className="relative mb-4 overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-slate-200">
+                        <ProductFavoriteToggle
+                          item={item}
+                          imageUrl={thumbnailUrl}
+                          size="sm"
+                          className="absolute right-2 top-2 z-10"
+                        />
                         <div className="relative aspect-[4/3] w-full">
                           {thumbnailUrl ? (
                             <Image

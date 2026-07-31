@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import { CartProvider } from "@/components/cart/CartProvider";
+import { FavoriteProvider } from "@/components/favorites/FavoriteProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -35,7 +36,9 @@ export default function RootLayout({
       className={`${inter.variable} font-[family-name:var(--font-inter)] h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <CartProvider>{children}</CartProvider>
+        <CartProvider>
+          <FavoriteProvider>{children}</FavoriteProvider>
+        </CartProvider>
         <CookieConsentBanner />
       </body>
     </html>

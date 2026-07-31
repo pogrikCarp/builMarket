@@ -3,6 +3,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import CartButton from "@/components/cart/CartButton";
 import ProductCartControl from "@/components/cart/ProductCartControl";
+import FavoriteButton from "@/components/favorites/FavoriteButton";
+import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductGallery from "@/components/ProductGallery";
 import SiteFooter from "@/components/SiteFooter";
 import { formatAttributeValue, getItemGalleryUrls, getProductById } from "@/lib/moysklad";
@@ -66,6 +68,7 @@ export default async function ProductPage({
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
             <Link href="/catalog" className="font-semibold text-amber-600">Каталог</Link>
             <Link href="/personal" className="text-slate-600 hover:text-slate-900">Кабинет</Link>
+            <FavoriteButton variant="inline" />
             <CartButton variant="inline" />
           </nav>
         </div>
@@ -119,8 +122,9 @@ export default async function ProductPage({
               {item.quantity && item.quantity > 0 ? `● В наличии: ${item.quantity}` : "Нет в наличии"}
             </p>
 
-            <div className="mt-6">
+            <div className="mt-6 flex items-center gap-3">
               <ProductCartControl item={item} size="md" />
+              <ProductFavoriteToggle item={item} imageUrl={images[0]} size="md" />
             </div>
 
             {attributes.length > 0 && (

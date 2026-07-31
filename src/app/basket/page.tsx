@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import CartButton from "@/components/cart/CartButton";
 import { useCart } from "@/components/cart/CartProvider";
+import FavoriteButton from "@/components/favorites/FavoriteButton";
 
 function formatPrice(value?: number) {
   if (value == null) return "Цена по запросу";
@@ -27,6 +28,7 @@ export default function BasketPage() {
           <nav className="flex items-center gap-3 text-sm">
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
             <Link href="/catalog" className="text-slate-600 hover:text-slate-900">Каталог</Link>
+            <FavoriteButton variant="inline" />
             <CartButton variant="inline" />
           </nav>
         </div>

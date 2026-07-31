@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import CartButton from "@/components/cart/CartButton";
+import FavoriteButton from "@/components/favorites/FavoriteButton";
 import { getAssortment, getAssortmentByFolder, getProductFolders } from "@/lib/moysklad";
 import CatalogBrowser from "@/components/CatalogBrowser";
 
@@ -39,6 +40,7 @@ export default async function CatalogPage({
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
             <Link href="/catalog" className="font-semibold text-amber-600">Каталог</Link>
             <Link href="/personal" className="text-slate-600 hover:text-slate-900">Кабинет</Link>
+            <FavoriteButton variant="inline" />
             <CartButton variant="inline" />
           </nav>
         </div>

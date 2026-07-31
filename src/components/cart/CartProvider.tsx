@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import type { MoyskladAssortmentItem } from "@/lib/moysklad";
 
 const STORAGE_KEY = "buildmarket-cart";
 const STORAGE_EVENT = "buildmarket-cart-change";
@@ -18,11 +17,22 @@ export type CartItem = {
   quantity: number;
 };
 
+// Минимальная форма товара, нужная корзине - не завязана на конкретный источник
+// данных (МойСклад и т.п.), поэтому её могут использовать разные компоненты
+// (карточка товара, страница избранного и т.д.).
+export type AddableItem = {
+  id: string;
+  name: string;
+  article?: string;
+  code?: string;
+  price?: number;
+};
+
 type CartContextValue = {
   items: CartItem[];
   itemCount: number;
   total: number;
-  addItem: (item: MoyskladAssortmentItem) => void;
+  addItem: (item: AddableItem) => void;
   removeItem: (id: string) => void;
   setQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -101,13 +111,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       itemCount,
       total,
       addItem: (item) => {
-        const price = item.salePrices?.[0]?.value;
         const current = readCartItems();
         const existing = current.find((entry) => entry.id === item.id);
         if (existing) {
           writeCartItems(
             current.map((entry) =>
-              entry.id === item.id ? { ...entry, quantity: entry.quantity + 1, price } : entry
+              entry.id === item.id ? { ...entry, quantity: entry.quantity + 1, price: item.price } : entry
             )
           );
           return;
@@ -120,7 +129,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             name: item.name,
             article: item.article,
             code: item.code,
-            price,
+            price: item.price,
             quantity: 1,
           },
         ]);
