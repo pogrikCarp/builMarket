@@ -8,11 +8,13 @@ import CatalogBrowser from "@/components/CatalogBrowser";
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ folder?: string; section?: string }>;
+  searchParams?: Promise<{ folder?: string; section?: string; q?: string }>;
 }) {
   const params = await searchParams;
-  const initialFolderId = params?.folder;
-  const initialSection = params?.section === "promo" ? "promo" : "all";
+  const initialSearch = params?.q?.trim() || undefined;
+  // Поисковый запрос должен искать по всему каталогу, а не только внутри выбранной папки
+  const initialFolderId = initialSearch ? undefined : params?.folder;
+  const initialSection = initialSearch ? "all" : params?.section === "promo" ? "promo" : "all";
 
   const foldersResult = await getProductFolders();
   const selectedFolder = initialFolderId
@@ -57,7 +59,13 @@ export default async function CatalogPage({
         )}
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
-          <CatalogBrowser folders={folders} initialItems={initialItems} initialFolderId={initialFolderId} initialSection={initialSection} />
+          <CatalogBrowser
+            folders={folders}
+            initialItems={initialItems}
+            initialFolderId={initialFolderId}
+            initialSection={initialSection}
+            initialSearch={initialSearch}
+          />
         </div>
       </main>
     </div>

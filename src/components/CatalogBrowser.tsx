@@ -66,9 +66,16 @@ type Props = {
   initialItems: MoyskladAssortmentItem[];
   initialFolderId?: string;
   initialSection?: "all" | "promo";
+  initialSearch?: string;
 };
 
-export default function CatalogBrowser({ folders, initialItems, initialFolderId, initialSection = "all" }: Props) {
+export default function CatalogBrowser({
+  folders,
+  initialItems,
+  initialFolderId,
+  initialSection = "all",
+  initialSearch = "",
+}: Props) {
   const initialFolder = useMemo(
     () => (initialFolderId ? folders.find((folder) => folder.id === initialFolderId) ?? null : null),
     [folders, initialFolderId]
@@ -88,7 +95,7 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [sortOption, setSortOption] = useState<SortOption>("name-asc");
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [priceFrom, setPriceFrom] = useState("");

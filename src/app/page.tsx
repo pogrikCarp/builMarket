@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type TouchEvent as ReactTouchEvent } from "react";
 import CartButton from "@/components/cart/CartButton";
 import FavoriteButton from "@/components/favorites/FavoriteButton";
 import { LOOKBOOKS } from "@/lib/lookbooks";
@@ -644,8 +645,17 @@ const CertificatesCarousel = ({ cards }: { cards: CertificateCard[] }) => {
 };
 
 export default function Home() {
+  const router = useRouter();
   const [callbackOpen, setCallbackOpen] = useState(false);
   const [homeMedia, setHomeMedia] = useState<HomeMedia[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+
+  const handleSearchSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const query = searchTerm.trim();
+    router.push(query ? `/catalog?q=${encodeURIComponent(query)}` : "/catalog");
+  };
 
   useEffect(() => {
     fetch("/api/home-content")
@@ -704,22 +714,65 @@ export default function Home() {
             </svg>
             <span className="hidden sm:inline">Каталог</span>
           </Link>
-          <div className="relative hidden flex-1 sm:block">
-            <input type="search" placeholder="Поиск" className="h-10 w-full border border-slate-100 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-amber-300 focus:bg-white" />
-            <svg className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-            </svg>
-          </div>
-          <div className="flex-1 sm:hidden" />
+          <form onSubmit={handleSearchSubmit} className="relative hidden flex-1 sm:block">
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Поиск"
+              className="h-10 w-full border border-slate-100 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-amber-300 focus:bg-white"
+            />
+            <button type="submit" aria-label="Искать" className="absolute right-3 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-slate-400 transition hover:text-amber-600">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+            </button>
+          </form>
+          {mobileSearchOpen ? (
+            <form onSubmit={handleSearchSubmit} className="flex flex-1 items-center gap-1 sm:hidden">
+              <input
+                autoFocus
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Поиск по каталогу"
+                className="h-10 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-amber-300 focus:bg-white"
+              />
+              <button type="submit" aria-label="Искать" className="flex h-10 w-10 shrink-0 items-center justify-center text-amber-600">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                aria-label="Закрыть поиск"
+                onClick={() => setMobileSearchOpen(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-slate-400 hover:text-slate-700"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </form>
+          ) : (
+            <div className="flex-1 sm:hidden" />
+          )}
           <div className="hidden min-w-32 text-center text-xs text-slate-500 lg:block">
             <a href={CONTACTS.phones[0].href} className="block font-semibold text-slate-900 hover:text-amber-600">{CONTACTS.phones[0].label}</a>
             <button type="button" onClick={() => setCallbackOpen(true)} className="uppercase tracking-wide hover:text-amber-600">заказать звонок</button>
           </div>
-          <button type="button" aria-label="Поиск" className="flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600 sm:hidden">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-            </svg>
-          </button>
+          {!mobileSearchOpen && (
+            <button
+              type="button"
+              aria-label="Поиск"
+              onClick={() => setMobileSearchOpen(true)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 transition hover:text-amber-600 sm:hidden"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+            </button>
+          )}
           <FavoriteButton hiddenOnMobile />
           <CartButton />
           <Link href="/login" className="flex h-10 w-10 items-center justify-center text-slate-500 transition hover:text-amber-600" aria-label="Войти">
