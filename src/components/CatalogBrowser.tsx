@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useCart } from "@/components/cart/CartProvider";
+import ProductCartControl from "@/components/cart/ProductCartControl";
 import type { MoyskladAssortmentItem, MoyskladProductFolder } from "@/lib/moysklad";
+import { formatAttributeValue, getItemThumbnailUrl } from "@/lib/moysklad-format";
 import { buildFolderTree, getRootOfFolder } from "@/lib/folder-tree";
 import { PROMO_PRODUCTS } from "@/lib/promo-products";
 
@@ -49,6 +51,15 @@ const getSubgroupLabel = (folder?: FolderInfo | null) => {
 
 type CatalogSection = "all" | "promo" | "folder";
 
+type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
+
+const SORT_LABELS: Record<SortOption, string> = {
+  "name-asc": "По алфавиту (А-Я)",
+  "name-desc": "По алфавиту (Я-А)",
+  "price-asc": "По цене (сначала дешевле)",
+  "price-desc": "По цене (сначала дороже)",
+};
+
 type Props = {
   folders: MoyskladProductFolder[];
   initialItems: MoyskladAssortmentItem[];
@@ -75,7 +86,14 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
   const [items, setItems] = useState<MoyskladAssortmentItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const { addItem, items: cartItems, setQuantity } = useCart();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>("name-asc");
+  const [onlyInStock, setOnlyInStock] = useState(false);
+  const [priceFrom, setPriceFrom] = useState("");
+  const [priceTo, setPriceTo] = useState("");
+  const [attributeFilters, setAttributeFilters] = useState<Record<string, Set<string>>>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const loadByFolder = useCallback(async (folder: MoyskladProductFolder) => {
     if (abortRef.current) abortRef.current.abort();
@@ -154,27 +172,109 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
     };
   }, []);
 
-  const handleAddToCart = (item: MoyskladAssortmentItem) => {
-    addItem(item);
-  };
+  // Набор характеристик (атрибутов МойСклад) зависит от раздела - при переключении
+  // раздела старые выбранные значения могли перестать существовать, поэтому сбрасываем
+  // их прямо во время рендера, как только видим новый массив items (см. "Adjusting
+  // state when a prop changes" в документации React).
+  const [previousItemsForFilters, setPreviousItemsForFilters] = useState(items);
+  if (items !== previousItemsForFilters) {
+    setPreviousItemsForFilters(items);
+    setAttributeFilters({});
+  }
 
-  const handleIncrease = (id: string, current: number) => {
-    setQuantity(id, current + 1);
-  };
-
-  const handleDecrease = (id: string, current: number) => {
-    if (current <= 1) {
-      setQuantity(id, 0);
-      return;
+  const availableAttributeFacets = useMemo(() => {
+    const facets = new Map<string, Set<string>>();
+    for (const item of items) {
+      for (const attribute of item.attributes ?? []) {
+        const value = formatAttributeValue(attribute.value);
+        if (!value) continue;
+        if (!facets.has(attribute.name)) facets.set(attribute.name, new Set());
+        facets.get(attribute.name)!.add(value);
+      }
     }
-    setQuantity(id, current - 1);
+    return Array.from(facets.entries()).map(([name, values]) => ({
+      name,
+      values: Array.from(values).sort((a, b) => a.localeCompare(b, "ru")),
+    }));
+  }, [items]);
+
+  const toggleAttributeFilter = (attributeName: string, value: string) => {
+    setAttributeFilters((prev) => {
+      const next = { ...prev };
+      const current = new Set(next[attributeName] ?? []);
+      if (current.has(value)) {
+        current.delete(value);
+      } else {
+        current.add(value);
+      }
+      if (current.size === 0) {
+        delete next[attributeName];
+      } else {
+        next[attributeName] = current;
+      }
+      return next;
+    });
   };
 
-  const handleQuantityInput = (id: string, value: string) => {
-    const parsed = Number(value.replace(/[^0-9]/g, ""));
-    if (Number.isNaN(parsed)) return;
-    setQuantity(id, Math.max(0, parsed));
+  const activeFilterCount =
+    Object.values(attributeFilters).reduce((sum, values) => sum + values.size, 0) +
+    (onlyInStock ? 1 : 0) +
+    (priceFrom ? 1 : 0) +
+    (priceTo ? 1 : 0);
+
+  const resetFilters = () => {
+    setAttributeFilters({});
+    setOnlyInStock(false);
+    setPriceFrom("");
+    setPriceTo("");
+    setSearchQuery("");
   };
+
+  const visibleItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const minPrice = priceFrom ? Number(priceFrom) * 100 : null;
+    const maxPrice = priceTo ? Number(priceTo) * 100 : null;
+
+    const filtered = items.filter((item) => {
+      if (query) {
+        const haystack = `${item.name} ${item.article ?? ""} ${item.code ?? ""}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+
+      if (onlyInStock && !(item.quantity && item.quantity > 0)) return false;
+
+      const price = item.salePrices?.[0]?.value;
+      if (minPrice != null && (price == null || price < minPrice)) return false;
+      if (maxPrice != null && (price == null || price > maxPrice)) return false;
+
+      for (const [attributeName, allowedValues] of Object.entries(attributeFilters)) {
+        if (allowedValues.size === 0) continue;
+        const itemValue = item.attributes
+          ?.filter((attribute) => attribute.name === attributeName)
+          .map((attribute) => formatAttributeValue(attribute.value))
+          .find(Boolean);
+        if (!itemValue || !allowedValues.has(itemValue)) return false;
+      }
+
+      return true;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case "name-desc":
+          return b.name.localeCompare(a.name, "ru");
+        case "price-asc":
+          return (a.salePrices?.[0]?.value ?? Infinity) - (b.salePrices?.[0]?.value ?? Infinity);
+        case "price-desc":
+          return (b.salePrices?.[0]?.value ?? -Infinity) - (a.salePrices?.[0]?.value ?? -Infinity);
+        case "name-asc":
+        default:
+          return a.name.localeCompare(b.name, "ru");
+      }
+    });
+
+    return sorted;
+  }, [items, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, attributeFilters]);
 
   return (
     <div className="flex min-h-[400px] flex-col md:flex-row md:gap-0">
@@ -323,19 +423,146 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
 
       {/* Область товаров */}
       <div className="flex-1 bg-stone-50 p-3 sm:p-6">
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
               {activeSection === "promo" ? "Акции" : activeFolder ? activeFolder.name : "Все товары"}
             </h2>
             <p className="text-sm text-slate-400">
-              {loading ? "Загрузка..." : `${activeSection === "promo" ? PROMO_PRODUCTS.length : items.length} товаров`}
+              {loading
+                ? "Загрузка..."
+                : `${activeSection === "promo" ? PROMO_PRODUCTS.length : visibleItems.length} товаров`}
             </p>
           </div>
           {loading && (
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
           )}
         </div>
+
+        {activeSection !== "promo" && (
+          <div className="mb-5 space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <circle cx="11" cy="11" r="7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Поиск по названию, артикулу..."
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-amber-400"
+                />
+              </div>
+              <select
+                value={sortOption}
+                onChange={(event) => setSortOption(event.target.value as SortOption)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-400"
+              >
+                {Object.entries(SORT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((prev) => !prev)}
+                className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                  filtersOpen || activeFilterCount > 0
+                    ? "border-amber-400 bg-amber-50 text-amber-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-amber-300"
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h18M6 12h12M10 19h4" />
+                </svg>
+                Фильтр
+                {activeFilterCount > 0 && (
+                  <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {filtersOpen && (
+              <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:gap-6">
+                <div className="min-w-[160px]">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Цена, ₽</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={priceFrom}
+                      onChange={(event) => setPriceFrom(event.target.value)}
+                      placeholder="От"
+                      className="w-20 rounded-md border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-amber-400"
+                    />
+                    <span className="text-slate-400">—</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={priceTo}
+                      onChange={(event) => setPriceTo(event.target.value)}
+                      placeholder="До"
+                      className="w-20 rounded-md border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="min-w-[160px]">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Наличие</p>
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={onlyInStock}
+                      onChange={(event) => setOnlyInStock(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                    />
+                    Только в наличии
+                  </label>
+                </div>
+
+                {availableAttributeFacets.map((facet) => (
+                  <div key={facet.name} className="min-w-[160px]">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">{facet.name}</p>
+                    <div className="flex max-h-32 flex-col gap-1.5 overflow-y-auto pr-1">
+                      {facet.values.map((value) => (
+                        <label key={value} className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={attributeFilters[facet.name]?.has(value) ?? false}
+                            onChange={() => toggleAttributeFilter(facet.name, value)}
+                            className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                          />
+                          {value}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="self-start text-sm font-semibold text-amber-600 hover:text-amber-700 sm:ml-auto sm:self-end"
+                  >
+                    Сбросить фильтры
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {activeSection === "promo" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -362,32 +589,47 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
           </div>
         ) : (
           <>
-            {items.length === 0 && !loading && (
+            {visibleItems.length === 0 && !loading && (
               <div className="flex h-48 items-center justify-center rounded-xl border border-slate-200 bg-white">
-                <p className="text-sm text-slate-400">Товаров в этой группе нет</p>
+                <p className="text-sm text-slate-400">
+                  {items.length === 0 ? "Товаров в этой группе нет" : "Ничего не найдено по заданным условиям"}
+                </p>
               </div>
             )}
 
             <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity duration-200 ${loading ? "opacity-50" : "opacity-100"}`}>
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const price = item.salePrices?.[0]?.value;
                 const groupLabel = getGroupLabel(item.productFolder);
                 const subgroupLabel = getSubgroupLabel(item.productFolder);
+                const thumbnailUrl = getItemThumbnailUrl(item);
                 return (
-                  <div
+                  <Link
                     key={item.id}
+                    href={`/catalog/${item.id}?type=${item.meta.type}`}
                     className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow-md"
                   >
                     <div>
                       <div className="mb-4 overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-slate-200">
-                        <div className="aspect-[4/3] w-full">
-                          <div className="flex h-full w-full items-center justify-center">
-                            <div className="text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
-                              Фото
-                              <br />
-                              скоро
+                        <div className="relative aspect-[4/3] w-full">
+                          {thumbnailUrl ? (
+                            <Image
+                              src={thumbnailUrl}
+                              alt={item.name}
+                              fill
+                              className="object-contain p-2"
+                              sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 26vw, (min-width: 640px) 45vw, 100vw"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <div className="text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
+                                Фото
+                                <br />
+                                скоро
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                       {groupLabel && (
@@ -415,51 +657,9 @@ export default function CatalogBrowser({ folders, initialItems, initialFolderId,
                           <p className="text-xs text-slate-500">В наличии: {item.quantity}</p>
                         )}
                       </div>
-                      {(() => {
-                        const quantityInCart = cartItems.find((cartItem) => cartItem.id === item.id)?.quantity ?? 0;
-                        if (quantityInCart === 0) {
-                          return (
-                            <button
-                              type="button"
-                              onClick={() => handleAddToCart(item)}
-                              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
-                            >
-                              В корзину
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <div className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50/70 px-2 py-0.5">
-                            <button
-                              type="button"
-                              onClick={() => handleDecrease(item.id, quantityInCart)}
-                              className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-amber-700 shadow hover:bg-amber-100"
-                              aria-label="Уменьшить количество"
-                            >
-                              −
-                            </button>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              value={quantityInCart}
-                              onChange={(event) => handleQuantityInput(item.id, event.target.value)}
-                              className="h-5 w-10 rounded-md border border-transparent bg-transparent text-center text-[11px] font-semibold text-amber-900 outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleIncrease(item.id, quantityInCart)}
-                              className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-amber-700 shadow hover:bg-amber-100"
-                              aria-label="Увеличить количество"
-                            >
-                              +
-                            </button>
-                          </div>
-                        );
-                      })()}
+                      <ProductCartControl item={item} size="sm" />
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
