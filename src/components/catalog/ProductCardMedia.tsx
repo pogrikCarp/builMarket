@@ -83,7 +83,8 @@ export default function ProductCardMedia({ images, alt }: Props) {
 
   return (
     <div
-      className="relative h-full w-full"
+      className="relative h-full w-full touch-pan-y"
+      style={{ touchAction: "pan-y" }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
