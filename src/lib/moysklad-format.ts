@@ -22,6 +22,19 @@ export function getItemThumbnailUrl(item: MoyskladAssortmentItem): string | null
   return getMoyskladImageProxyUrl(href);
 }
 
+/**
+ * Уменьшенные превью всех фото товара (не только первого) — используются в карточке
+ * каталога, чтобы можно было пролистывать фото наведением/тапом без перехода в товар.
+ */
+export function getItemGalleryThumbnailUrls(item: MoyskladAssortmentItem): string[] {
+  const rows = item.images?.rows ?? [];
+  return rows
+    .map((image) => image.miniature?.href ?? image.tiny?.href ?? image.meta.downloadHref ?? image.meta.href)
+    .filter((href): href is string => Boolean(href))
+    .map((href) => getMoyskladImageProxyUrl(href))
+    .filter((url): url is string => Boolean(url));
+}
+
 export function getItemGalleryUrls(item: MoyskladAssortmentItem): string[] {
   const rows = item.images?.rows ?? [];
   return rows

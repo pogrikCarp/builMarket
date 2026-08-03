@@ -6,9 +6,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import type { MoyskladAssortmentItem, MoyskladProductFolder } from "@/lib/moysklad";
-import { formatAttributeValue, getItemThumbnailUrl } from "@/lib/moysklad-format";
-import { buildFolderTree, getRootOfFolder } from "@/lib/folder-tree";
+import { formatAttributeValue, getItemGalleryThumbnailUrls } from "@/lib/moysklad-format";
+import { buildFolderTree, getFolderPath } from "@/lib/folder-tree";
 import { PROMO_PRODUCTS } from "@/lib/promo-products";
+import ProductCardMedia from "@/components/catalog/ProductCardMedia";
 
 function formatPrice(value?: number) {
   if (value == null) return null;
@@ -81,12 +82,14 @@ export default function CatalogBrowser({
     [folders, initialFolderId]
   );
   const { roots: rootFolders, childrenByParent } = useMemo(() => buildFolderTree(folders), [folders]);
-  const [expandedRootId, setExpandedRootId] = useState<string | null>(() => {
-    if (!initialFolder) return null;
-    const root = getRootOfFolder(initialFolder, rootFolders, childrenByParent);
-    return root?.id ?? null;
-  });
   const [activeFolder, setActiveFolder] = useState<MoyskladProductFolder | null>(initialFolder);
+  // Полная цепочка предков активной папки (раздел → категория → подкатегория...) —
+  // нужна, чтобы на любом уровне вложенности подсвечивать и раскрывать правильный путь,
+  // а не только раздел + один уровень подкатегорий.
+  const activePath = useMemo(
+    () => (activeFolder ? getFolderPath(activeFolder, folders) : []),
+    [activeFolder, folders]
+  );
   const [activeSection, setActiveSection] = useState<CatalogSection>(
     initialFolder ? "folder" : initialSection
   );
@@ -148,10 +151,9 @@ export default function CatalogBrowser({
     }
   }, []);
 
-  const handleFolderClick = (folder: MoyskladProductFolder, rootId?: string) => {
+  const handleFolderClick = (folder: MoyskladProductFolder) => {
     setActiveSection("folder");
     setActiveFolder(folder);
-    setExpandedRootId(rootId ?? folder.id);
     loadByFolder(folder);
   };
 
@@ -284,6 +286,34 @@ export default function CatalogBrowser({
     return sorted;
   }, [items, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, attributeFilters]);
 
+  // Рекурсивный список подкатегорий для десктопного сайдбара — раскрыт всегда, поддерживает
+  // любую глубину вложенности (в МойСклад встречаются папки на 3 уровня: раздел → категория → подкатегория).
+  const renderFolderChildren = (parentHref: string, depth: number) => {
+    const children = childrenByParent.get(parentHref) ?? [];
+    if (children.length === 0) return null;
+    return (
+      <ul className="border-l border-slate-100 pb-1 pl-4">
+        {children.map((child) => (
+          <li key={child.id}>
+            <button
+              type="button"
+              onClick={() => handleFolderClick(child)}
+              className={`flex w-full items-center gap-2 py-2 pl-4 pr-2 text-left text-[13px] transition ${
+                activeSection === "folder" && activeFolder?.id === child.id
+                  ? "font-semibold text-amber-700"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+              <span className="leading-tight">{child.name}</span>
+            </button>
+            {renderFolderChildren(child.meta.href, depth + 1)}
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
   return (
     <div className="flex min-h-[400px] flex-col md:flex-row md:gap-0">
       {/* Sidebar групп — горизонтальный скролл на мобильных, вертикальный на md+ */}
@@ -311,14 +341,14 @@ export default function CatalogBrowser({
             </button>
             {rootFolders.map((folder) => {
               const children = childrenByParent.get(folder.meta.href) ?? [];
-              const isActiveRoot = activeSection === "folder" && activeFolder?.id === folder.id;
+              const isActiveRoot = activeSection === "folder" && activePath[0]?.id === folder.id;
               return (
                 <button
                   key={folder.id}
                   type="button"
-                  onClick={() => handleFolderClick(folder, folder.id)}
+                  onClick={() => handleFolderClick(folder)}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                    isActiveRoot || expandedRootId === folder.id ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
+                    isActiveRoot ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
                   }`}
                 >
                   {folder.name}
@@ -327,24 +357,35 @@ export default function CatalogBrowser({
               );
             })}
           </div>
-          {expandedRootId && (childrenByParent.get(rootFolders.find((r) => r.id === expandedRootId)?.meta.href ?? "")?.length ?? 0) > 0 && (
-            <div className="flex gap-2 overflow-x-auto border-t border-slate-100 bg-slate-50 px-3 py-2.5">
-              {(childrenByParent.get(rootFolders.find((r) => r.id === expandedRootId)?.meta.href ?? "") ?? []).map((child) => (
-                <button
-                  key={child.id}
-                  type="button"
-                  onClick={() => handleFolderClick(child, expandedRootId)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
-                    activeSection === "folder" && activeFolder?.id === child.id
-                      ? "bg-amber-500 text-white"
-                      : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200"
-                  }`}
-                >
-                  {child.name}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Дополнительные ряды чипов на каждый уровень вложенности активного пути —
+              так подкатегории любой глубины (раздел → категория → подкатегория) остаются доступны. */}
+          {activePath.map((node, level) => {
+            const children = childrenByParent.get(node.meta.href) ?? [];
+            if (children.length === 0) return null;
+            return (
+              <div key={node.id} className="flex gap-2 overflow-x-auto border-t border-slate-100 bg-slate-50 px-3 py-2.5">
+                {children.map((child) => {
+                  const childChildren = childrenByParent.get(child.meta.href) ?? [];
+                  const isActiveChild = activeSection === "folder" && activePath[level + 1]?.id === child.id;
+                  return (
+                    <button
+                      key={child.id}
+                      type="button"
+                      onClick={() => handleFolderClick(child)}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                        isActiveChild
+                          ? "bg-amber-500 text-white"
+                          : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200"
+                      }`}
+                    >
+                      {child.name}
+                      {childChildren.length > 0 && <span className="ml-1 opacity-70">▾</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
         {/* Десктоп: вертикальный список */}
         <div className="sticky top-16 hidden md:block">
@@ -384,47 +425,25 @@ export default function CatalogBrowser({
                 Акции
               </button>
             </li>
-            {rootFolders.map((folder) => {
-              const children = childrenByParent.get(folder.meta.href) ?? [];
-              return (
-                <li key={folder.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleFolderClick(folder, folder.id)}
-                    className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
-                      activeSection === "folder" && activeFolder?.id === folder.id
-                        ? "bg-amber-50 font-semibold text-amber-700"
-                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                    }`}
-                  >
-                    <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-                    </svg>
-                    <span className="leading-tight">{folder.name}</span>
-                  </button>
-                  {children.length > 0 && (
-                    <ul className="border-l border-slate-100 pb-1 pl-4">
-                      {children.map((child) => (
-                        <li key={child.id}>
-                          <button
-                            type="button"
-                            onClick={() => handleFolderClick(child, folder.id)}
-                            className={`flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] transition ${
-                              activeSection === "folder" && activeFolder?.id === child.id
-                                ? "font-semibold text-amber-700"
-                                : "text-slate-500 hover:text-slate-900"
-                            }`}
-                          >
-                            <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
-                            <span className="leading-tight">{child.name}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              );
-            })}
+            {rootFolders.map((folder) => (
+              <li key={folder.id}>
+                <button
+                  type="button"
+                  onClick={() => handleFolderClick(folder)}
+                  className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
+                    activeSection === "folder" && activeFolder?.id === folder.id
+                      ? "bg-amber-50 font-semibold text-amber-700"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                  </svg>
+                  <span className="leading-tight">{folder.name}</span>
+                </button>
+                {renderFolderChildren(folder.meta.href, 1)}
+              </li>
+            ))}
           </ul>
         </div>
       </aside>
@@ -610,7 +629,7 @@ export default function CatalogBrowser({
                 const price = item.salePrices?.[0]?.value;
                 const groupLabel = getGroupLabel(item.productFolder);
                 const subgroupLabel = getSubgroupLabel(item.productFolder);
-                const thumbnailUrl = getItemThumbnailUrl(item);
+                const galleryUrls = getItemGalleryThumbnailUrls(item);
                 return (
                   <Link
                     key={item.id}
@@ -621,29 +640,12 @@ export default function CatalogBrowser({
                       <div className="relative mb-4 overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-slate-200">
                         <ProductFavoriteToggle
                           item={item}
-                          imageUrl={thumbnailUrl}
+                          imageUrl={galleryUrls[0] ?? null}
                           size="sm"
                           className="absolute right-2 top-2 z-10"
                         />
                         <div className="relative aspect-[4/3] w-full">
-                          {thumbnailUrl ? (
-                            <Image
-                              src={thumbnailUrl}
-                              alt={item.name}
-                              fill
-                              className="object-contain p-2"
-                              sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 26vw, (min-width: 640px) 45vw, 100vw"
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center">
-                              <div className="text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
-                                Фото
-                                <br />
-                                скоро
-                              </div>
-                            </div>
-                          )}
+                          <ProductCardMedia images={galleryUrls} alt={item.name} />
                         </div>
                       </div>
                       {groupLabel && (

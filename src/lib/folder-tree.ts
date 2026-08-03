@@ -39,3 +39,21 @@ export function getRootOfFolder<T extends FolderLike>(
   }
   return null;
 }
+
+// У МойСклад категории могут быть вложены на 3+ уровня (раздел → категория → подкатегория).
+// Возвращает полную цепочку предков включительно с самой папкой: [раздел, категория, ..., folder].
+// Нужна и для хлебных крошек на странице товара, и для подсветки активного пути в каталоге.
+export function getFolderPath<T extends FolderLike>(folder: T, allFolders: T[]): T[] {
+  const byHref = new Map(allFolders.map((item) => [item.meta.href, item]));
+  const path: T[] = [folder];
+  const seen = new Set([folder.id]);
+  let current = folder;
+  while (current.productFolder?.meta.href && byHref.has(current.productFolder.meta.href)) {
+    const parent = byHref.get(current.productFolder.meta.href)!;
+    if (seen.has(parent.id)) break;
+    path.unshift(parent);
+    seen.add(parent.id);
+    current = parent;
+  }
+  return path;
+}

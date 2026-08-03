@@ -7,7 +7,8 @@ import FavoriteButton from "@/components/favorites/FavoriteButton";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductGallery from "@/components/ProductGallery";
 import SiteFooter from "@/components/SiteFooter";
-import { formatAttributeValue, getItemGalleryUrls, getProductById } from "@/lib/moysklad";
+import { formatAttributeValue, getItemGalleryUrls, getProductById, getProductFolders } from "@/lib/moysklad";
+import { getFolderPath } from "@/lib/folder-tree";
 
 function formatPrice(value?: number) {
   if (value == null) return null;
@@ -50,12 +51,14 @@ export default async function ProductPage({
     .map((attribute) => ({ name: attribute.name, value: formatAttributeValue(attribute.value) }))
     .filter((attribute): attribute is { name: string; value: string } => Boolean(attribute.value));
 
-  const parentSegments = (item.productFolder?.pathName ?? "")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  const folderId = getFolderId(item.productFolder?.meta.href);
-  const folderName = item.productFolder?.name;
+  // Полный список папок нужен, чтобы построить цепочку раздел → категория → подкатегория
+  // с рабочими ссылками на каждый уровень (МойСклад отдаёт вложенность до 3 уровней).
+  const foldersResult = await getProductFolders().catch(() => ({ rows: [] }));
+  const immediateFolderId = getFolderId(item.productFolder?.meta.href);
+  const immediateFolder = immediateFolderId
+    ? foldersResult.rows.find((folder) => folder.id === immediateFolderId)
+    : undefined;
+  const folderPath = immediateFolder ? getFolderPath(immediateFolder, foldersResult.rows) : [];
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
@@ -77,22 +80,12 @@ export default async function ProductPage({
       <main className="mx-auto max-w-7xl px-4 py-8">
         <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
           <Link href="/catalog" className="hover:text-amber-600">Каталог</Link>
-          {parentSegments.map((segment) => (
-            <span key={segment} className="flex items-center gap-1.5">
+          {folderPath.map((folder) => (
+            <span key={folder.id} className="flex items-center gap-1.5">
               <span>/</span>
-              <span>{segment}</span>
+              <Link href={`/catalog?folder=${folder.id}`} className="hover:text-amber-600">{folder.name}</Link>
             </span>
           ))}
-          {folderName && (
-            <span className="flex items-center gap-1.5">
-              <span>/</span>
-              {folderId ? (
-                <Link href={`/catalog?folder=${folderId}`} className="hover:text-amber-600">{folderName}</Link>
-              ) : (
-                <span>{folderName}</span>
-              )}
-            </span>
-          )}
           <span className="flex items-center gap-1.5">
             <span>/</span>
             <span className="text-slate-700">{item.name}</span>
