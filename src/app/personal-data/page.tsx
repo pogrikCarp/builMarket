@@ -166,7 +166,7 @@ export default function PersonalDataPage() {
               <li>Наименование организации/ИП: ООО «НерудСтрой»</li>
               <li>Юридический адрес: 142202, Московская обл., Серпуховский район, п. Мирный, д. 2А, офис 2</li>
               <li>Фактический адрес: 142202, Московская обл., Серпуховский район, п. Мирный, д. 2А, офис 2</li>
-              <li>Email для запросов: domstroy.dmd@mail.ru</li>
+              <li>Email для запросов: info@marketdomstroy.ru, domstroy.dmd@mail.ru</li>
               <li>Телефон: <a href="tel:+79160045522" className="font-semibold text-amber-700 hover:underline">+7 916 004-55-22</a></li>
               <li>Ответственный за обработку данных: Генеральный директор Керимов Сийдимет Савзиханович</li>
             </ul>

@@ -1,9 +1,6 @@
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 
-const missingDataClass =
-  "mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-600";
-
 const WORK_HOURS = [
   { label: "Понедельник", hours: "10:00–18:00" },
   { label: "Вторник", hours: "10:00–18:00" },
@@ -27,19 +24,14 @@ export default function ContactsPage() {
             <Link href="/" className="text-xs font-semibold uppercase tracking-[0.45em] text-amber-600 transition hover:text-amber-700">
               ← ДомСтрой
             </Link>
-            <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Контактная информация</p>
-                <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
-                  Всегда на связи по вопросам заказа и поставки
-                </h1>
-                <p className="mt-5 max-w-3xl text-base leading-7 text-slate-600 md:text-lg">
-                  Поможем подобрать строительные материалы, рассчитать объём, согласовать доставку и подготовить документы для частного покупателя или организации.
-                </p>
-              </div>
-              <div className="rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm leading-6 text-red-700 shadow-sm">
-                <span className="font-bold">Красным отмечены данные компании, которые необходимо предоставить</span>, чтобы завершить страницу перед публикацией.
-              </div>
+            <div className="mt-8">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Контактная информация</p>
+              <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
+                Всегда на связи по вопросам заказа и поставки
+              </h1>
+              <p className="mt-5 max-w-3xl text-base leading-7 text-slate-600 md:text-lg">
+                Поможем подобрать строительные материалы, рассчитать объём, согласовать доставку и подготовить документы для частного покупателя или организации.
+              </p>
             </div>
           </div>
         </section>
@@ -52,9 +44,14 @@ export default function ContactsPage() {
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Отправьте вопрос, пожелание или предложение. Ответим по электронной почте.
               </p>
-              <a href="mailto:domstroy.dmd@mail.ru" className="mt-5 inline-flex text-sm font-semibold text-amber-700 transition hover:text-amber-800">
-                domstroy.dmd@mail.ru →
-              </a>
+              <div className="mt-5 flex flex-col gap-1.5">
+                <a href="mailto:info@marketdomstroy.ru" className="inline-flex text-sm font-semibold text-amber-700 transition hover:text-amber-800">
+                  info@marketdomstroy.ru →
+                </a>
+                <a href="mailto:domstroy.dmd@mail.ru" className="inline-flex text-sm font-semibold text-amber-600/80 transition hover:text-amber-800">
+                  domstroy.dmd@mail.ru →
+                </a>
+              </div>
             </article>
 
             <article className="group rounded-[28px] border border-amber-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg">
@@ -97,9 +94,6 @@ export default function ContactsPage() {
                   <address className="mt-3 not-italic text-sm leading-6 text-slate-700">
                     Верхняя улица, 15/1, деревня Кутузово, городской округ Домодедово, Московская область
                   </address>
-                  <div className={missingDataClass}>
-                    Нужна информация для адреса центрального офиса, подписания договоров и т. д.
-                  </div>
                 </div>
                 <div className="rounded-3xl bg-[#f8f4ed] p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Юридическое лицо</p>
@@ -126,13 +120,14 @@ export default function ContactsPage() {
                   <span>Городской номер</span>
                   <span>+7 916 004-55-22</span>
                 </a>
-                <a href="mailto:domstroy.dmd@mail.ru" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
+                <a href="mailto:info@marketdomstroy.ru" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
                   <span>Электронная почта</span>
+                  <span>info@marketdomstroy.ru</span>
+                </a>
+                <a href="mailto:domstroy.dmd@mail.ru" className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-4 text-sm font-semibold transition hover:bg-amber-500 hover:text-slate-950">
+                  <span>Доп. почта</span>
                   <span>domstroy.dmd@mail.ru</span>
                 </a>
-              </div>
-              <div className="mt-6 rounded-2xl border border-red-400/60 bg-red-500/10 px-4 py-3 text-sm font-semibold leading-6 text-red-300">
-                Нужны часы работы телефонной поддержки
               </div>
             </div>
           </div>
@@ -232,7 +227,7 @@ export default function ContactsPage() {
             <p className="mt-4 text-sm leading-7 text-slate-600">
               Заполните данные и опишите вопрос. Сообщение можно отправить через ваш почтовый клиент.
             </p>
-            <form action="mailto:domstroy.dmd@mail.ru" method="post" encType="text/plain" className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <form action="mailto:info@marketdomstroy.ru?cc=domstroy.dmd@mail.ru" method="post" encType="text/plain" className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <label className="text-sm font-medium text-slate-700">
                 Ваше имя
                 <input name="name" required placeholder="Иван Иванов" className="mt-2 w-full rounded-2xl border border-slate-200 bg-[#faf9f7] px-4 py-3 outline-none transition placeholder:text-slate-400 focus:border-amber-400 focus:ring-4 focus:ring-amber-100" />

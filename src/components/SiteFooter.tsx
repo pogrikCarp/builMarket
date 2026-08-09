@@ -67,8 +67,8 @@ export default function SiteFooter() {
             <a href="tel:+79160045522" className="hover:text-amber-600">
               +7 916 004-55-22
             </a>
-            <a href="mailto:domstroy.dmd@mail.ru" className="hover:text-amber-600">
-              domstroy.dmd@mail.ru
+            <a href="mailto:info@marketdomstroy.ru" className="hover:text-amber-600">
+              info@marketdomstroy.ru
             </a>
             <a
               href="https://vk.ru/domstroy_market"

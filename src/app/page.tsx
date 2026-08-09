@@ -25,7 +25,7 @@ const CONTACTS = {
     { label: "+7 916 004-55-22", href: "tel:+79160045522" },
     { label: "+7 916 004-55-22", href: "tel:+79160045522", note: "Звонок бесплатный" },
   ],
-  email: { label: "domstroy.dmd@mail.ru", href: "mailto:domstroy.dmd@mail.ru" },
+  email: { label: "info@marketdomstroy.ru", href: "mailto:info@marketdomstroy.ru" },
 };
 
 const SOCIAL_LINKS: LinkItem[] = [
