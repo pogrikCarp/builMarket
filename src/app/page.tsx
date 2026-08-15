@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEven
 import CartButton from "@/components/cart/CartButton";
 import FavoriteButton from "@/components/favorites/FavoriteButton";
 import SearchOverlay from "@/components/search/SearchOverlay";
+import CallbackModal from "@/components/CallbackModal";
 import { LOOKBOOKS } from "@/lib/lookbooks";
 import { buildFolderTree } from "@/lib/folder-tree";
 import SiteFooter from "@/components/SiteFooter";
@@ -108,104 +109,6 @@ const HERO_SLIDES = [
     highlights: ["Водоснабжение", "Отопление", "Монтаж инженерии"],
   },
 ];
-
-const CallbackModal = ({ onClose }: { onClose: () => void }) => {
-  const [agreed, setAgreed] = useState(false);
-  const captchaChars = "WCSF";
-  return (
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          aria-label="Закрыть"
-        >
-          ✕
-        </button>
-        <h2 className="text-xl font-semibold text-slate-900">Заказать звонок</h2>
-        <form className="mt-6 space-y-4" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
-          <div>
-            <label className="block text-sm text-slate-700">
-              Ваше имя <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-700">
-              Телефон <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="tel"
-              required
-              placeholder="+7 (___) ___-__-__"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-700">
-              Введите текст с картинки <span className="text-red-500">*</span>
-            </label>
-            <div className="mt-1 flex items-center gap-3">
-              <input
-                type="text"
-                required
-                className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-              />
-              <div className="flex items-center gap-2">
-                <div className="select-none rounded border border-slate-300 bg-slate-50 px-4 py-2 font-mono text-xl font-bold tracking-[0.3em] text-slate-800 [text-decoration:line-through_wavy_rgba(0,0,0,0.2)]">
-                  {captchaChars}
-                </div>
-                <button type="button" className="text-slate-400 hover:text-slate-700" title="Обновить">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m0 0A7.001 7.001 0 0 1 18.418 9M4.582 9H9m11 11v-5h-.581m0 0A7.001 7.001 0 0 1 5.582 15M20.419 15H16" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-          <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-600">
-            <button
-              type="button"
-              onClick={() => setAgreed((v) => !v)}
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
-                agreed ? "bg-amber-500" : "bg-slate-300"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  agreed ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-            Я согласен на{" "}
-            <span className="text-amber-600 underline">обработку персональных данных</span>
-          </label>
-          <div className="flex items-center gap-4 pt-2">
-            <button
-              type="submit"
-              disabled={!agreed}
-              className="rounded-lg bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Отправить
-            </button>
-            <span className="text-xs text-slate-400">* – обязательные поля</span>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 type MsFolder = {
   id: string;
