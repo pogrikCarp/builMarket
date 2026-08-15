@@ -4,6 +4,42 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 const CAPTCHA_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const CAPTCHA_ATTEMPTS_STORAGE_KEY = "domstroy_callback_captcha_attempts";
+const MAX_CAPTCHA_ATTEMPTS = 10;
+const CAPTCHA_LOCKOUT_MS = 5 * 60 * 1000;
+
+type AttemptsState = { count: number; lockedUntil: number | null };
+
+function readAttemptsState(): AttemptsState {
+  if (typeof window === "undefined") return { count: 0, lockedUntil: null };
+  try {
+    const raw = window.localStorage.getItem(CAPTCHA_ATTEMPTS_STORAGE_KEY);
+    if (!raw) return { count: 0, lockedUntil: null };
+    const parsed = JSON.parse(raw) as Partial<AttemptsState>;
+    return {
+      count: typeof parsed.count === "number" ? parsed.count : 0,
+      lockedUntil: typeof parsed.lockedUntil === "number" ? parsed.lockedUntil : null,
+    };
+  } catch {
+    return { count: 0, lockedUntil: null };
+  }
+}
+
+function writeAttemptsState(state: AttemptsState) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CAPTCHA_ATTEMPTS_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Игнорируем ошибки записи (например, приватный режим браузера).
+  }
+}
+
+function formatLockDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 function generateCaptchaCode(length = 5): string {
   let code = "";
@@ -100,12 +136,45 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
   const [agreed, setAgreed] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [lockRemainingMs, setLockRemainingMs] = useState(0);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
   const refreshCaptcha = () => {
     setCaptchaCode(generateCaptchaCode());
     setCaptchaInput("");
   };
+
+  useEffect(() => {
+    const state = readAttemptsState();
+    if (state.lockedUntil && state.lockedUntil > Date.now()) {
+      setLockedUntil(state.lockedUntil);
+    } else if (state.lockedUntil) {
+      writeAttemptsState({ count: 0, lockedUntil: null });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!lockedUntil) {
+      setLockRemainingMs(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = lockedUntil - Date.now();
+      if (remaining <= 0) {
+        setLockedUntil(null);
+        setLockRemainingMs(0);
+        writeAttemptsState({ count: 0, lockedUntil: null });
+      } else {
+        setLockRemainingMs(remaining);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [lockedUntil]);
+
+  const isLocked = lockedUntil !== null && lockedUntil > Date.now();
 
   const phoneDigits = phone.replace(/\D/g, "");
   const isPhoneValid = /^7\d{10}$/.test(phoneDigits);
@@ -114,6 +183,10 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
     event.preventDefault();
     setErrorMessage("");
 
+    if (isLocked) {
+      setErrorMessage(`Слишком много неверных попыток ввода кода. Повторите через ${formatLockDuration(lockRemainingMs)}.`);
+      return;
+    }
     if (!name.trim()) {
       setErrorMessage("Укажите имя");
       return;
@@ -123,7 +196,17 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
       return;
     }
     if (captchaInput.trim().toUpperCase() !== captchaCode) {
-      setErrorMessage("Код с картинки введён неверно");
+      const previous = readAttemptsState();
+      const nextCount = previous.count + 1;
+      if (nextCount >= MAX_CAPTCHA_ATTEMPTS) {
+        const lockUntil = Date.now() + CAPTCHA_LOCKOUT_MS;
+        writeAttemptsState({ count: 0, lockedUntil: lockUntil });
+        setLockedUntil(lockUntil);
+        setErrorMessage(`Слишком много неверных попыток ввода кода. Повторите через ${formatLockDuration(CAPTCHA_LOCKOUT_MS)}.`);
+      } else {
+        writeAttemptsState({ count: nextCount, lockedUntil: null });
+        setErrorMessage(`Код с картинки введён неверно (попытка ${nextCount} из ${MAX_CAPTCHA_ATTEMPTS})`);
+      }
       refreshCaptcha();
       return;
     }
@@ -132,6 +215,7 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
+    writeAttemptsState({ count: 0, lockedUntil: null });
     setStatus("submitting");
     try {
       const response = await fetch("/api/callback", {
@@ -202,7 +286,13 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
           ✕
         </button>
         <h2 className="text-xl font-semibold text-slate-900">Заказать звонок</h2>
+        {isLocked && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
+            Слишком много неверных попыток ввода кода. Повторите через {formatLockDuration(lockRemainingMs)}.
+          </div>
+        )}
         <form className="mt-6 space-y-4" onSubmit={handleSubmit} noValidate>
+          <fieldset disabled={isLocked} className="space-y-4 disabled:opacity-60">
           <div className="hidden" aria-hidden="true">
             <label>
               Оставьте это поле пустым
@@ -293,17 +383,18 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
               </Link>
             </span>
           </div>
-          {errorMessage && <p className="text-sm font-medium text-red-600">{errorMessage}</p>}
+          {errorMessage && !isLocked && <p className="text-sm font-medium text-red-600">{errorMessage}</p>}
           <div className="flex items-center gap-4 pt-2">
             <button
               type="submit"
-              disabled={!agreed || status === "submitting"}
+              disabled={!agreed || status === "submitting" || isLocked}
               className="rounded-lg bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "submitting" ? "Отправляем…" : "Отправить"}
             </button>
             <span className="text-xs text-slate-400">* – обязательные поля</span>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>
