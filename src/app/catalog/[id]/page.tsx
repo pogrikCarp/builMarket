@@ -19,10 +19,6 @@ function formatPrice(value?: number) {
   });
 }
 
-function getFolderId(href?: string) {
-  if (!href) return undefined;
-  return href.split("/").pop();
-}
 
 export default async function ProductPage({
   params,
@@ -53,8 +49,11 @@ export default async function ProductPage({
 
   // Полный список папок нужен, чтобы построить цепочку раздел → категория → подкатегория
   // с рабочими ссылками на каждый уровень (МойСклад отдаёт вложенность до 3 уровней).
+  // ID папки берём из поля id, а не из meta.href — при глубоком expand (productFolder.productFolder)
+  // МойСклад иногда дописывает в href родителя "?expand=productFolder", из-за чего разбор
+  // ссылки на "/" даёт мусор вместо чистого id и цепочка ломается.
   const foldersResult = await getProductFolders().catch(() => ({ rows: [] }));
-  const immediateFolderId = getFolderId(item.productFolder?.meta.href);
+  const immediateFolderId = item.productFolder?.id;
   const immediateFolder = immediateFolderId
     ? foldersResult.rows.find((folder) => folder.id === immediateFolderId)
     : undefined;

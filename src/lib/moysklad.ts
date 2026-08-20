@@ -71,9 +71,10 @@ export type MoyskladAssortmentItem = {
   uom?: { name: string };
   productFolder?: {
     meta: { href: string; type: string };
+    id?: string;
     name?: string;
     pathName?: string;
-    productFolder?: { meta: { href: string; type: string }; name?: string };
+    productFolder?: { meta: { href: string; type: string }; id?: string; name?: string };
   };
   images?: {
     meta: { href: string; size?: number };
