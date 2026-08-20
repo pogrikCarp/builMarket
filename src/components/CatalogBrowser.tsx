@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
@@ -224,9 +225,14 @@ export default function CatalogBrowser({
     };
   }, []);
 
-  // Держим адрес страницы в соответствии с выбранным разделом, поиском и фильтрами.
-  // Благодаря этому кнопка "назад" браузера после перехода в карточку товара
-  // возвращает пользователя туда же, где он был, а не в начало каталога.
+  // Держим адрес страницы в соответствии с выбранным разделом, поиском и фильтрами,
+  // используя именно router.replace (а не "тихую" history.replaceState) — Next.js
+  // кэширует RSC-пейлоад для текущей записи истории и именно его переиспользует при
+  // нажатии "назад" в браузере. Если не обновлять URL через сам роутер, кнопка "назад"
+  // покажет тот пейлоад, что был закэширован при первом заходе на /catalog (то есть
+  // "все товары"), полностью игнорируя выбранный раздел и фильтры.
+  const router = useRouter();
+  const isFirstUrlSyncRef = useRef(true);
   useEffect(() => {
     const url = buildCatalogUrl({
       section: activeSection,
@@ -237,8 +243,20 @@ export default function CatalogBrowser({
       priceFrom,
       priceTo,
     });
-    window.history.replaceState(null, "", url);
-  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo]);
+
+    // На самом первом рендере адрес уже соответствует переданным initial*-пропсам —
+    // не нужно сразу же дёргать роутер повторным запросом.
+    if (isFirstUrlSyncRef.current) {
+      isFirstUrlSyncRef.current = false;
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      router.replace(url, { scroll: false });
+    }, 400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, router]);
 
   // Набор характеристик (атрибутов МойСклад) зависит от раздела - при переключении
   // раздела старые выбранные значения могли перестать существовать, поэтому сбрасываем
