@@ -8,7 +8,15 @@ import CatalogBrowser from "@/components/CatalogBrowser";
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ folder?: string; section?: string; q?: string }>;
+  searchParams?: Promise<{
+    folder?: string;
+    section?: string;
+    q?: string;
+    sort?: string;
+    stock?: string;
+    priceFrom?: string;
+    priceTo?: string;
+  }>;
 }) {
   const params = await searchParams;
   const initialSearch = params?.q?.trim() || undefined;
@@ -65,6 +73,10 @@ export default async function CatalogPage({
             initialFolderId={initialFolderId}
             initialSection={initialSection}
             initialSearch={initialSearch}
+            initialSort={params?.sort}
+            initialOnlyInStock={params?.stock === "1"}
+            initialPriceFrom={params?.priceFrom}
+            initialPriceTo={params?.priceTo}
           />
         </div>
       </main>

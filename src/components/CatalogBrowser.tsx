@@ -68,7 +68,45 @@ type Props = {
   initialFolderId?: string;
   initialSection?: "all" | "promo";
   initialSearch?: string;
+  initialSort?: string;
+  initialOnlyInStock?: boolean;
+  initialPriceFrom?: string;
+  initialPriceTo?: string;
 };
+
+const isSortOption = (value?: string): value is SortOption =>
+  value === "name-asc" || value === "name-desc" || value === "price-asc" || value === "price-desc";
+
+// Формирует адрес /catalog с параметрами текущего просмотра (раздел, поиск, сортировка, фильтры),
+// чтобы кнопка "назад" браузера после открытия карточки товара возвращала туда же, откуда ушли.
+function buildCatalogUrl(state: {
+  section: CatalogSection;
+  folderId: string | null;
+  search: string;
+  sort: SortOption;
+  inStock: boolean;
+  priceFrom: string;
+  priceTo: string;
+}): string {
+  const params = new URLSearchParams();
+  const trimmedSearch = state.search.trim();
+
+  if (trimmedSearch) {
+    params.set("q", trimmedSearch);
+  } else if (state.section === "promo") {
+    params.set("section", "promo");
+  } else if (state.section === "folder" && state.folderId) {
+    params.set("folder", state.folderId);
+  }
+
+  if (state.sort !== "name-asc") params.set("sort", state.sort);
+  if (state.inStock) params.set("stock", "1");
+  if (state.priceFrom) params.set("priceFrom", state.priceFrom);
+  if (state.priceTo) params.set("priceTo", state.priceTo);
+
+  const query = params.toString();
+  return `/catalog${query ? `?${query}` : ""}`;
+}
 
 export default function CatalogBrowser({
   folders,
@@ -76,6 +114,10 @@ export default function CatalogBrowser({
   initialFolderId,
   initialSection = "all",
   initialSearch = "",
+  initialSort,
+  initialOnlyInStock = false,
+  initialPriceFrom = "",
+  initialPriceTo = "",
 }: Props) {
   const initialFolder = useMemo(
     () => (initialFolderId ? folders.find((folder) => folder.id === initialFolderId) ?? null : null),
@@ -99,10 +141,10 @@ export default function CatalogBrowser({
   const abortRef = useRef<AbortController | null>(null);
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
-  const [sortOption, setSortOption] = useState<SortOption>("name-asc");
-  const [onlyInStock, setOnlyInStock] = useState(false);
-  const [priceFrom, setPriceFrom] = useState("");
-  const [priceTo, setPriceTo] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>(isSortOption(initialSort) ? initialSort : "name-asc");
+  const [onlyInStock, setOnlyInStock] = useState(initialOnlyInStock);
+  const [priceFrom, setPriceFrom] = useState(initialPriceFrom);
+  const [priceTo, setPriceTo] = useState(initialPriceTo);
   const [attributeFilters, setAttributeFilters] = useState<Record<string, Set<string>>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -181,6 +223,22 @@ export default function CatalogBrowser({
       if (abortRef.current) abortRef.current.abort();
     };
   }, []);
+
+  // Держим адрес страницы в соответствии с выбранным разделом, поиском и фильтрами.
+  // Благодаря этому кнопка "назад" браузера после перехода в карточку товара
+  // возвращает пользователя туда же, где он был, а не в начало каталога.
+  useEffect(() => {
+    const url = buildCatalogUrl({
+      section: activeSection,
+      folderId: activeFolder?.id ?? null,
+      search: searchQuery,
+      sort: sortOption,
+      inStock: onlyInStock,
+      priceFrom,
+      priceTo,
+    });
+    window.history.replaceState(null, "", url);
+  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo]);
 
   // Набор характеристик (атрибутов МойСклад) зависит от раздела - при переключении
   // раздела старые выбранные значения могли перестать существовать, поэтому сбрасываем
