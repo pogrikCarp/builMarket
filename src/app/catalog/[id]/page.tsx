@@ -68,7 +68,7 @@ export default async function ProductPage({
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" className="font-semibold text-amber-600">Каталог</Link>
+            <Link href="/catalog" prefetch={false} className="font-semibold text-amber-600">Каталог</Link>
             <Link href="/personal" className="text-slate-600 hover:text-slate-900">Кабинет</Link>
             <FavoriteButton variant="inline" />
             <CartButton variant="inline" />
@@ -78,11 +78,11 @@ export default async function ProductPage({
 
       <main className="mx-auto max-w-7xl px-4 py-8">
         <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
-          <Link href="/catalog" className="hover:text-amber-600">Каталог</Link>
+          <Link href="/catalog" prefetch={false} className="hover:text-amber-600">Каталог</Link>
           {folderPath.map((folder) => (
             <span key={folder.id} className="flex items-center gap-1.5">
               <span>/</span>
-              <Link href={`/catalog?folder=${folder.id}`} className="hover:text-amber-600">{folder.name}</Link>
+              <Link href={`/catalog?folder=${folder.id}`} prefetch={false} className="hover:text-amber-600">{folder.name}</Link>
             </span>
           ))}
           <span className="flex items-center gap-1.5">

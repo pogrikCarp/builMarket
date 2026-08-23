@@ -156,7 +156,7 @@ export default function OrderPage() {
             </Link>
             <nav className="flex items-center gap-3 text-sm">
               <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-              <Link href="/catalog" className="text-slate-600 hover:text-slate-900">Каталог</Link>
+              <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
               <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
               <CartButton variant="inline" />
             </nav>
@@ -219,7 +219,7 @@ export default function OrderPage() {
                   <li>1. Менеджер позвонит для подтверждения наличия и адреса доставки.</li>
                 </ul>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <Link href="/catalog" className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-600">
+                  <Link href="/catalog" prefetch={false} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-600">
                     В каталог
                   </Link>
                   <Link href="/basket" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900">
@@ -245,7 +245,7 @@ export default function OrderPage() {
             </Link>
             <nav className="flex items-center gap-3 text-sm">
               <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-              <Link href="/catalog" className="text-slate-600 hover:text-slate-900">Каталог</Link>
+              <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
               <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
               <CartButton variant="inline" />
             </nav>
@@ -260,7 +260,7 @@ export default function OrderPage() {
               Добавьте товары в корзину, и здесь появится страница оформления заказа с контактными данными, доставкой и итоговой суммой.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href="/catalog" className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-600">
+              <Link href="/catalog" prefetch={false} className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-600">
                 Перейти в каталог
               </Link>
               <Link href="/basket" className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900">
@@ -282,7 +282,7 @@ export default function OrderPage() {
           </Link>
           <nav className="flex items-center gap-3 text-sm">
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" className="text-slate-600 hover:text-slate-900">Каталог</Link>
+            <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
             <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
             <CartButton variant="inline" />
           </nav>
@@ -568,7 +568,7 @@ export default function OrderPage() {
                 <Link href="/basket" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900">
                   Вернуться в корзину
                 </Link>
-                <Link href="/catalog" className="rounded-2xl px-4 py-3 text-sm font-semibold text-amber-700 transition hover:text-slate-900">
+                <Link href="/catalog" prefetch={false} className="rounded-2xl px-4 py-3 text-sm font-semibold text-amber-700 transition hover:text-slate-900">
                   Добавить ещё товары
                 </Link>
               </div>

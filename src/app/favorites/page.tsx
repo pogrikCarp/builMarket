@@ -28,7 +28,7 @@ export default function FavoritesPage() {
           </Link>
           <nav className="flex items-center gap-3 text-sm">
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" className="text-slate-600 hover:text-slate-900">Каталог</Link>
+            <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
             <CartButton variant="inline" />
           </nav>
         </div>
@@ -60,6 +60,7 @@ export default function FavoritesPage() {
             <p className="mt-2 text-sm text-slate-500">Нажмите на сердечко у товара в каталоге, чтобы добавить его сюда.</p>
             <Link
               href="/catalog"
+              prefetch={false}
               className="mt-6 inline-flex rounded-xl bg-amber-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-600"
             >
               Перейти в каталог
@@ -83,7 +84,7 @@ export default function FavoritesPage() {
                       )}
                     </div>
                   </div>
-                  <Link href={`/catalog/${item.id}`} className="font-semibold leading-snug text-slate-900 hover:text-amber-600">
+                  <Link href={`/catalog/${item.id}`} prefetch={false} className="font-semibold leading-snug text-slate-900 hover:text-amber-600">
                     {item.name}
                   </Link>
                   {item.article && <p className="mt-1 text-xs text-slate-400">Арт: {item.article}</p>}

@@ -245,6 +245,7 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
                     <Link
                       href="/catalog"
                       onClick={onClose}
+                      prefetch={false}
                       className="rounded-full border border-transparent bg-amber-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
                     >
                       Открыть каталог →
@@ -257,6 +258,7 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
                       <Link
                         href={getFolderHref(activeGroup.folder)}
                         onClick={onClose}
+                        prefetch={false}
                         className="inline-flex items-center gap-2 text-base font-semibold text-slate-900 transition hover:text-amber-600"
                       >
                         Все товары раздела «{activeGroup.title}»
@@ -271,6 +273,7 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
                                 key={child.id}
                                 href={getFolderHref(child)}
                                 onClick={onClose}
+                                prefetch={false}
                                 className="text-sm leading-snug text-slate-500 transition hover:text-amber-600"
                               >
                                 {child.name}
@@ -603,6 +606,7 @@ export default function Home() {
           </a>
           <Link
             href="/catalog"
+            prefetch={false}
             className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold text-slate-800 transition hover:text-amber-600 sm:px-3"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
@@ -733,6 +737,7 @@ export default function Home() {
                 <Link
                   key={card.label}
                   href={card.href}
+                  prefetch={card.href !== "/catalog"}
                   className="group premium-card relative overflow-hidden rounded-xl shadow-sm"
                   style={{ aspectRatio: "1.54" }}
                 >
@@ -760,7 +765,7 @@ export default function Home() {
           <div className={CONTENT_CONTAINER}>
             <div className="mb-6 flex flex-col gap-4 text-start lg:flex-row lg:items-end lg:justify-between">
               <SectionTitle title="Лучшие предложения по акции" subtitle="акции" />
-              <Link href="/catalog?section=promo" className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600 transition hover:text-slate-900 sm:tracking-[0.35em]">
+              <Link href="/catalog?section=promo" prefetch={false} className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600 transition hover:text-slate-900 sm:tracking-[0.35em]">
                 Весь список товара →
               </Link>
             </div>

@@ -4,6 +4,17 @@ import { join } from "node:path";
 const BASE_URL = `https://api.moysklad.ru/api/remap/1.2`;
 const ENV_FILES = [".env.local", ".env", "envir.env"];
 
+// МойСклад отключает доступ к API при слишком высокой частоте запросов (лимит по
+// тарифу, ошибки 429). Раньше все запросы шли с cache: "no-store", то есть
+// абсолютно каждый визит на каталог/товар/поиск бил в МойСклад напрямую - при
+// параллельных посетителях и автоматических prefetch-запросах Next.js это легко
+// превышало лимит и МойСклад блокировал токен целиком. Кэшируем ответы на стороне
+// Next.js (Data Cache) на непродолжительное время - изменения в МойСклад всё ещё
+// попадают на сайт в течение минуты, но повторные запросы разных посетителей
+// не долбят API заново.
+const MOYSKLAD_REVALIDATE_SECONDS = 60;
+const MOYSKLAD_IMAGE_REVALIDATE_SECONDS = 3600;
+
 function getTokenFromFile() {
   for (const fileName of ENV_FILES) {
     const filePath = join(process.cwd(), fileName);
@@ -130,7 +141,7 @@ async function enrichItemsWithImages(
       try {
         const res = await fetch(item.images!.meta.href, {
           headers: getAuthHeaders(),
-          cache: "no-store",
+          next: { revalidate: MOYSKLAD_REVALIDATE_SECONDS },
         });
         if (!res.ok) return;
         const data: { rows?: MoyskladImage[] } = await res.json();
@@ -163,7 +174,7 @@ export async function getAssortment(
 
   const res = await fetch(url, {
     headers: getAuthHeaders(),
-    cache: "no-store",
+    next: { revalidate: MOYSKLAD_REVALIDATE_SECONDS },
   });
 
   if (!res.ok) {
@@ -197,7 +208,10 @@ export async function getProductById(
   let lastError: Error | null = null;
   for (const type of typesToTry) {
     const url = buildUrl(`/entity/${type}/${id}`, params);
-    const res = await fetch(url, { headers: getAuthHeaders(), cache: "no-store" });
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+      next: { revalidate: MOYSKLAD_REVALIDATE_SECONDS },
+    });
     if (res.ok) return res.json();
     if (res.status !== 404) {
       lastError = new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
@@ -220,7 +234,7 @@ export async function fetchMoyskladImageBytes(href: string) {
 
   const res = await fetch(href, {
     headers: { ...getAuthHeaders(), Accept: "image/png,image/jpeg,image/*;q=0.8,*/*;q=0.5" },
-    cache: "no-store",
+    next: { revalidate: MOYSKLAD_IMAGE_REVALIDATE_SECONDS },
   });
   if (!res.ok) {
     throw new Error(`MoySklad API error: ${res.status}`);
@@ -250,7 +264,7 @@ export async function getProductFolders(): Promise<MoyskladProductFolderResponse
     const url = buildUrl("/entity/productfolder", params);
     const res = await fetch(url, {
       headers: getAuthHeaders(),
-      cache: "no-store",
+      next: { revalidate: MOYSKLAD_REVALIDATE_SECONDS },
     });
     if (!res.ok) {
       throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
@@ -282,7 +296,7 @@ export async function getAssortmentByFolder(
   const url = buildUrl("/entity/assortment", params);
   const res = await fetch(url, {
     headers: getAuthHeaders(),
-    cache: "no-store",
+    next: { revalidate: MOYSKLAD_REVALIDATE_SECONDS },
   });
   if (!res.ok) {
     throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);

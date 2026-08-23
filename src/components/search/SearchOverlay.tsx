@@ -152,6 +152,7 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
                         key={item.id}
                         href={`/catalog/${item.id}`}
                         onClick={onClose}
+                        prefetch={false}
                         className="group rounded-xl border border-slate-100 p-2.5 transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md sm:p-3"
                       >
                         <div className="flex h-16 items-center justify-center sm:h-20">
@@ -213,6 +214,7 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
                         key={folder.id}
                         href={`/catalog?folder=${folder.id}`}
                         onClick={onClose}
+                        prefetch={false}
                         className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-amber-50 hover:text-amber-700"
                       >
                         <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -227,6 +229,7 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
                   <Link
                     href="/catalog"
                     onClick={onClose}
+                    prefetch={false}
                     className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-amber-600 transition hover:bg-amber-50"
                   >
                     Весь каталог →

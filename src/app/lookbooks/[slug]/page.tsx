@@ -41,6 +41,7 @@ export default async function LookbookPage({ params }: { params: Promise<{ slug:
                 <p className="text-lg leading-8 text-slate-600">{lookbook.description}</p>
                 <Link
                   href="/catalog"
+                  prefetch={false}
                   className="mt-8 inline-flex items-center gap-2 rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-amber-600"
                 >
                   Смотреть материалы в каталоге

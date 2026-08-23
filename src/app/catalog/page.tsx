@@ -48,7 +48,7 @@ export default async function CatalogPage({
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" className="font-semibold text-amber-600">Каталог</Link>
+            <Link href="/catalog" prefetch={false} className="font-semibold text-amber-600">Каталог</Link>
             <Link href="/personal" className="text-slate-600 hover:text-slate-900">Кабинет</Link>
             <FavoriteButton variant="inline" />
             <CartButton variant="inline" />

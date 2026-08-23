@@ -27,7 +27,7 @@ export default function BasketPage() {
           </Link>
           <nav className="flex items-center gap-3 text-sm">
             <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" className="text-slate-600 hover:text-slate-900">Каталог</Link>
+            <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
             <FavoriteButton variant="inline" />
             <CartButton variant="inline" />
           </nav>
@@ -46,6 +46,7 @@ export default function BasketPage() {
             <p className="mt-2 text-sm text-slate-500">Добавьте товары из каталога, и они появятся здесь.</p>
             <Link
               href="/catalog"
+              prefetch={false}
               className="mt-6 inline-flex rounded-xl bg-amber-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-600"
             >
               Перейти в каталог

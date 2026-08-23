@@ -710,6 +710,10 @@ export default function CatalogBrowser({
                   <Link
                     key={item.id}
                     href={`/catalog/${item.id}?type=${item.meta.type}`}
+                    // В каталоге одновременно видно/рядом много карточек - без prefetch={false}
+                    // Next.js тихо предзагружал бы карточку товара (и, соответственно, запрос
+                    // к МойСклад) для каждой из них, что и приводило к перегрузке лимита API.
+                    prefetch={false}
                     className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow-md"
                   >
                     <div>
