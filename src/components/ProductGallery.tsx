@@ -12,20 +12,12 @@ export default function ProductGallery({ images, alt }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (images.length === 0) {
-    return (
-      <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 via-white to-slate-200">
-        <div className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-slate-300">
-          Фото
-          <br />
-          скоро
-        </div>
-      </div>
-    );
+    return <div className="aspect-square w-full rounded-2xl bg-white" />;
   }
 
   return (
     <div>
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-white">
         <Image
           src={images[activeIndex]}
           alt={alt}

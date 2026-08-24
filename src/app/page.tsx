@@ -79,13 +79,27 @@ const CERT_PLACEHOLDERS = [
   { id: 6, label: "Сертификат №6", image: "/sertificat/sert6.png" },
 ];
 
-const HERO_SLIDES = [
+type HeroSlide = {
+  id: number;
+  brand: string;
+  caption: string;
+  image: string;
+  highlights: string[];
+  // Если задано - каждая надпись из highlights становится ссылкой на этот адрес
+  // (по тому же индексу). Используется, например, чтобы клик по названию бренда
+  // на баннере вёл в каталог с поиском по этому бренду.
+  highlightHrefs?: string[];
+};
+
+const HERO_SLIDES: HeroSlide[] = [
   {
     id: 1,
     brand: "ЭЛЕКТРОИНСТРУМЕНТЫ",
     caption: "Прямые поставки с Китая",
     image: "/banner4.png",
     highlights: ["Fengbao", "Edon", "Redbo"],
+    // Названия брендов на этом баннере кликабельны - ведут в каталог с поиском по бренду.
+    highlightHrefs: ["/catalog?q=Fengbao", "/catalog?q=Edon", "/catalog?q=Redbo"],
   },
   {
     id: 2,
@@ -416,12 +430,29 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
                 <p className="text-xs uppercase tracking-[0.4em] text-white/70">{activeSlide.caption}</p>
                 <p className="mt-2 text-2xl font-semibold leading-tight sm:mt-4 sm:text-3xl md:text-4xl">{activeSlide.brand}</p>
               </div>
-              <div key={`high-${activeIndex}`} className="mt-4 flex flex-wrap justify-center gap-3 fade-in-up-200">
-                {activeSlide.highlights.map((item) => (
-                  <span key={item} className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/80">
-                    {item}
-                  </span>
-                ))}
+              <div key={`high-${activeIndex}`} className="pointer-events-auto mt-4 flex flex-wrap justify-center gap-3 fade-in-up-200">
+                {activeSlide.highlights.map((item, index) => {
+                  const href = activeSlide.highlightHrefs?.[index];
+                  const pillClassName =
+                    "rounded-full border border-white/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/80 transition";
+                  if (href) {
+                    return (
+                      <Link
+                        key={item}
+                        href={href}
+                        prefetch={false}
+                        className={`${pillClassName} hover:border-amber-400 hover:bg-white/10 hover:text-white`}
+                      >
+                        {item}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <span key={item} className={pillClassName}>
+                      {item}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>

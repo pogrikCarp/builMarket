@@ -70,15 +70,7 @@ export default function ProductCardMedia({ images, alt }: Props) {
   };
 
   if (images.length === 0) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
-          Фото
-          <br />
-          скоро
-        </div>
-      </div>
-    );
+    return <div className="h-full w-full bg-white" />;
   }
 
   return (

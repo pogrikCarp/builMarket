@@ -71,16 +71,10 @@ export default function FavoritesPage() {
             {items.map((item) => (
               <div key={item.id} className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div>
-                  <div className="mb-4 overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-slate-200">
+                  <div className="mb-4 overflow-hidden rounded-lg bg-white">
                     <div className="relative aspect-[4/3] w-full">
-                      {item.image ? (
+                      {item.image && (
                         <Image src={item.image} alt={item.name} fill className="object-contain p-2" unoptimized />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
-                          Фото
-                          <br />
-                          скоро
-                        </div>
                       )}
                     </div>
                   </div>

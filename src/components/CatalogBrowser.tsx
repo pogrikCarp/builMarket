@@ -323,7 +323,11 @@ export default function CatalogBrowser({
 
     const filtered = items.filter((item) => {
       if (query) {
-        const haystack = `${item.name} ${item.article ?? ""} ${item.code ?? ""}`.toLowerCase();
+        const attributeValues = (item.attributes ?? [])
+          .map((attribute) => formatAttributeValue(attribute.value))
+          .filter(Boolean)
+          .join(" ");
+        const haystack = `${item.name} ${item.article ?? ""} ${item.code ?? ""} ${attributeValues}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
 
@@ -717,7 +721,7 @@ export default function CatalogBrowser({
                     className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow-md"
                   >
                     <div>
-                      <div className="relative mb-4 overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-slate-200">
+                      <div className="relative mb-4 overflow-hidden rounded-lg bg-white">
                         <ProductFavoriteToggle
                           item={item}
                           imageUrl={galleryUrls[0] ?? null}
