@@ -14,6 +14,10 @@ const ENV_FILES = [".env.local", ".env", "envir.env"];
 // не долбят API заново.
 const MOYSKLAD_REVALIDATE_SECONDS = 60;
 const MOYSKLAD_IMAGE_REVALIDATE_SECONDS = 3600;
+// Для sitemap.xml не нужны изображения/атрибуты - только id, поэтому кэшируем
+// значительно дольше обычного (карта сайта не обязана обновляться поминутно),
+// это отдельный от каталога запрос и не должно создавать лишнюю нагрузку на МойСклад.
+const MOYSKLAD_SITEMAP_REVALIDATE_SECONDS = 3600;
 
 function getTokenFromFile() {
   for (const fileName of ENV_FILES) {
@@ -248,6 +252,42 @@ export async function fetchMoyskladImageBytes(href: string) {
 // Чистые функции-форматтеры (без node:fs) вынесены в moysklad-format.ts,
 // чтобы их можно было безопасно импортировать из клиентских компонентов.
 export { getMoyskladImageProxyUrl, getItemThumbnailUrl, getItemGalleryUrls, formatAttributeValue } from "./moysklad-format";
+
+/**
+ * Лёгкий список id товаров для sitemap.xml - без expand=images,attributes,productFolder
+ * и без enrichItemsWithImages, чтобы не плодить сотни дополнительных запросов
+ * к МойСклад (см. комментарий про 429 выше). Достаточно id, чтобы построить
+ * ссылку /catalog/{id}.
+ */
+export async function getAssortmentIdsForSitemap(maxItems = 5000): Promise<string[]> {
+  // МойСклад отдаёт довольно "тяжёлые" строки даже без expand (~8КБ на товар),
+  // поэтому лимит меньше, чем в getAssortment - иначе один ответ превышает лимит
+  // Next.js Data Cache в 2МБ на запись и не кэшируется вовсе.
+  const limit = 200;
+  let offset = 0;
+  let total = Infinity;
+  const ids: string[] = [];
+
+  while (offset < total && ids.length < maxItems) {
+    const params = new URLSearchParams();
+    params.append("limit", String(limit));
+    params.append("offset", String(offset));
+    const url = buildUrl("/entity/assortment", params);
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+      next: { revalidate: MOYSKLAD_SITEMAP_REVALIDATE_SECONDS },
+    });
+    if (!res.ok) {
+      throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
+    }
+    const data: { rows: { id: string }[]; meta: { size: number } } = await res.json();
+    ids.push(...data.rows.map((row) => row.id));
+    total = data.meta.size;
+    offset += limit;
+  }
+
+  return ids.slice(0, maxItems);
+}
 
 export async function getProductFolders(): Promise<MoyskladProductFolderResponse> {
   const limit = 1000;

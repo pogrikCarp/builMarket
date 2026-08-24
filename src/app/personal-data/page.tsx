@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Политика обработки персональных данных",
+  description: "Политика обработки персональных данных сайта marketdomstroy.ru в соответствии с законодательством РФ.",
+  path: "/personal-data",
+});
 
 const tableClass = "mt-4 w-full min-w-[720px] border-collapse text-left text-sm";
 const thClass = "border border-slate-200 bg-amber-50 px-4 py-3 font-semibold text-slate-900";

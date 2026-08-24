@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Контакты",
+  description:
+    "Контакты ДомСтрой: адрес магазина в деревне Кутузово (Домодедово), телефон +7 916 004-55-22, почта, режим работы и схема проезда.",
+  path: "/contacts",
+});
 
 const WORK_HOURS = [
   { label: "Понедельник", hours: "10:00–18:00" },

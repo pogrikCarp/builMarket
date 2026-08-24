@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Прайс-лист",
+  description: "Актуальный прайс-лист на строительные материалы ДомСтрой — узнайте цены и наличие по телефону, почте или в каталоге.",
+  path: "/price-list",
+});
 
 export default function PriceListPage() {
   return (

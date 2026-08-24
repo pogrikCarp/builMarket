@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -7,8 +8,10 @@ import FavoriteButton from "@/components/favorites/FavoriteButton";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductGallery from "@/components/ProductGallery";
 import SiteFooter from "@/components/SiteFooter";
+import JsonLd from "@/components/JsonLd";
 import { formatAttributeValue, getItemGalleryUrls, getProductById, getProductFolders } from "@/lib/moysklad";
 import { getFolderPath } from "@/lib/folder-tree";
+import { buildBreadcrumbJsonLd, buildMetadata, buildProductJsonLd } from "@/lib/seo";
 
 function formatPrice(value?: number) {
   if (value == null) return null;
@@ -19,14 +22,40 @@ function formatPrice(value?: number) {
   });
 }
 
-
-export default async function ProductPage({
-  params,
-  searchParams,
-}: {
+type ProductPageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ type?: string }>;
-}) {
+};
+
+export async function generateMetadata({ params, searchParams }: ProductPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const { type } = (await searchParams) ?? {};
+
+  try {
+    const item = await getProductById(id, type);
+    if (!item?.name) throw new Error("Товар не найден");
+
+    const images = getItemGalleryUrls(item);
+    const description =
+      item.description?.trim() || `${item.name} — купить в ДомСтрой с доставкой по Москве и Московской области.`;
+
+    return buildMetadata({
+      title: item.name,
+      description: description.length > 300 ? `${description.slice(0, 297)}...` : description,
+      path: `/catalog/${id}`,
+      image: images[0],
+    });
+  } catch {
+    return buildMetadata({
+      title: "Товар не найден",
+      description: "Запрошенный товар не найден в каталоге ДомСтрой.",
+      path: `/catalog/${id}`,
+      noindex: true,
+    });
+  }
+}
+
+export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { id } = await params;
   const { type } = (await searchParams) ?? {};
 
@@ -46,6 +75,7 @@ export default async function ProductPage({
   const attributes = (item.attributes ?? [])
     .map((attribute) => ({ name: attribute.name, value: formatAttributeValue(attribute.value) }))
     .filter((attribute): attribute is { name: string; value: string } => Boolean(attribute.value));
+  const brandAttribute = attributes.find((attribute) => /бренд|производител/i.test(attribute.name));
 
   // Полный список папок нужен, чтобы построить цепочку раздел → категория → подкатегория
   // с рабочими ссылками на каждый уровень (МойСклад отдаёт вложенность до 3 уровней).
@@ -61,6 +91,25 @@ export default async function ProductPage({
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
+      <JsonLd
+        data={buildProductJsonLd({
+          id,
+          name: item.name,
+          description: item.description,
+          images,
+          price: price != null ? price / 100 : undefined,
+          inStock: Boolean(item.quantity && item.quantity > 0),
+          brand: brandAttribute?.value,
+        })}
+      />
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Главная", path: "/" },
+          { name: "Каталог", path: "/catalog" },
+          ...folderPath.map((folder) => ({ name: folder.name, path: `/catalog?folder=${folder.id}` })),
+          { name: item.name, path: `/catalog/${id}` },
+        ])}
+      />
       <header className="border-b border-slate-100 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex shrink-0 items-center">

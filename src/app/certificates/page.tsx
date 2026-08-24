@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
+import { buildMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Сертификаты и лицензии",
+  description: "Сертификаты соответствия, лицензии и допуски, подтверждающие качество и надёжность ДомСтрой как поставщика стройматериалов.",
+  path: "/certificates",
+});
 
 const CERTIFICATES = [
   { id: 1, title: "Сертификат соответствия", image: "/sertificat/sert1.png" },

@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Реквизиты",
+  description: "Юридические реквизиты ИП Магомедшерифов К.Ш.: ИНН, банковские реквизиты и юридический адрес.",
+  path: "/requisites",
+});
 
 export default function RequisitesPage() {
   return (

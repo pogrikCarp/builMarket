@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Как купить",
+  description: "Как оформить заказ в ДомСтрой: выбор товаров, оплата и доставка или самовывоз со склада.",
+  path: "/help",
+});
 
 export default function HelpPage() {
   return (

@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Погрузочные работы",
+  description: "Погрузка и разгрузка строительных материалов на складе и на объекте от ДомСтрой.",
+  path: "/services/pogruzochnye-raboty",
+});
 
 export default function LoadingServicesPage() {
   return (

@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Акция дня",
+  description: "Товары со специальной ценой в магазине ДомСтрой — актуальные акции на строительные материалы.",
+  path: "/promo",
+});
 
 export default function PromoPage() {
   return (

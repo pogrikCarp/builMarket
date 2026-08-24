@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/auth";
 import { Sidebar } from "./Sidebar";
+
+// Личный кабинет требует авторизации и не должен индексироваться поисковиками
+// (дублируется правилом Disallow в robots.ts - noindex здесь на случай,
+// если страница всё же будет просканирована по прямой ссылке).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function PersonalLayout({
   children,

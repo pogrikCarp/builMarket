@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Условия оплаты",
+  description: "Способы оплаты заказа в ДомСтрой: наличными, безналичным расчётом или в кредит.",
+  path: "/help/payment",
+});
 
 export default function PaymentPage() {
   return (

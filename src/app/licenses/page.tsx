@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Лицензии",
+  description: "Лицензии, сертификаты соответствия и декларации на продукцию ДомСтрой.",
+  path: "/licenses",
+});
 
 export default function LicensesPage() {
   return (

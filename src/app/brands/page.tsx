@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
+import { buildMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Бренды",
+  description: "Бренды-партнёры ДомСтрой: проверенные производители стройматериалов и электроинструментов с гарантией поставки.",
+  path: "/brands",
+});
 
 const BRANDS = [
   { name: "Fengbao", logo: "/comp/1fengbao.webp" },

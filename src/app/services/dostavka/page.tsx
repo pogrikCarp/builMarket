@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Доставка",
+  description: "Доставка строительных и отделочных материалов ДомСтрой по Москве и Московской области.",
+  path: "/services/dostavka",
+});
 
 export default function DeliveryPage() {
   return (

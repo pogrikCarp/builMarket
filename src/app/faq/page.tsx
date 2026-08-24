@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
+import JsonLd from "@/components/JsonLd";
+import { buildFaqJsonLd, buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Вопрос-ответ",
+  description: "Частые вопросы покупателей ДомСтрой: оформление заказа, оплата, доставка, возврат товара и колеровка красок.",
+  path: "/faq",
+});
 
 const FAQ_ITEMS = [
   {
@@ -27,6 +36,7 @@ const FAQ_ITEMS = [
 export default function FaqPage() {
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
+      <JsonLd data={buildFaqJsonLd(FAQ_ITEMS)} />
       <main>
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#fff7e8] via-white to-[#f7f1e6]" />

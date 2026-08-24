@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+// Раздел пока в разработке (см. текст ниже) - индексировать заглушку с тонким
+// контентом не имеет смысла, чтобы не создавать проблем с качеством выдачи.
+export const metadata: Metadata = buildMetadata({
+  title: "Онлайн-трансляция",
+  description: "Онлайн-трансляция со склада и торговой площадки ДомСтрой.",
+  path: "/webcams",
+  noindex: true,
+});
 
 export default function WebcamsPage() {
   return (

@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/auth";
 import { AdminSidebar } from "./AdminSidebar";
+
+// Админ-панель не должна индексироваться (дублирует правило Disallow в robots.ts).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({
   children,

@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Вакансии",
+  description: "Вакансии и работа в ДомСтрой — отправьте резюме, если хотите присоединиться к команде.",
+  path: "/vacancies",
+});
 
 export default function VacanciesPage() {
   return (

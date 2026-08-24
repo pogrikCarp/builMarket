@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 import { LOOKBOOKS } from "@/lib/lookbooks";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Готовые наборы электроинструментов",
+  description: "Готовые наборы аккумуляторных электроинструментов ДомСтрой — 2в1, 3в1, 4в1 и 6в1 — подберите комплект под задачу.",
+  path: "/lookbooks",
+});
 
 export default function LookbooksPage() {
   return (

@@ -1,11 +1,27 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import SiteFooter from "@/components/SiteFooter";
+import JsonLd from "@/components/JsonLd";
 import { LOOKBOOKS } from "@/lib/lookbooks";
+import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
 export function generateStaticParams() {
   return LOOKBOOKS.map((lookbook) => ({ slug: lookbook.slug }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const lookbook = LOOKBOOKS.find((item) => item.slug === slug);
+  if (!lookbook) return buildMetadata({ title: "Набор не найден", description: "Набор не найден", path: `/lookbooks/${slug}`, noindex: true });
+
+  return buildMetadata({
+    title: `${lookbook.title} — готовый набор электроинструментов`,
+    description: lookbook.description,
+    path: `/lookbooks/${lookbook.slug}`,
+    image: lookbook.image,
+  });
 }
 
 export default async function LookbookPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -18,6 +34,13 @@ export default async function LookbookPage({ params }: { params: Promise<{ slug:
 
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Главная", path: "/" },
+          { name: "Наборы", path: "/lookbooks" },
+          { name: lookbook.title, path: `/lookbooks/${lookbook.slug}` },
+        ])}
+      />
       <main>
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#fff7e8] via-white to-[#f7f1e6]" />

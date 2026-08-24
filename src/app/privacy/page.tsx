@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Политика конфиденциальности",
+  description: "Политика конфиденциальности сайта marketdomstroy.ru: как ДомСтрой обрабатывает данные пользователей.",
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (

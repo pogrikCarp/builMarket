@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import InfoPage from "@/components/InfoPage";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Колеровка красок",
+  description: "Подбор и колеровка краски нужного оттенка прямо в магазине ДомСтрой.",
+  path: "/services/kolerovka",
+});
 
 export default function ColoringPage() {
   return (
