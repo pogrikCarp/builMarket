@@ -8,6 +8,12 @@ export type PromoProduct = {
   image: string;
 };
 
+// Фото товаров пока не загружены в МойСклад - используем локальную заглушку вместо
+// внешнего сервиса (picsum.photos), чтобы не зависеть от стороннего хостинга изображений
+// (у него нередко 403 для запросов с серверов хостинг-провайдеров) и не плодить лишние
+// внешние запросы на каждый визит.
+const PLACEHOLDER_IMAGE = "/promo/placeholder.svg";
+
 export const PROMO_PRODUCTS: PromoProduct[] = [
   {
     id: "prod1",
@@ -16,7 +22,7 @@ export const PROMO_PRODUCTS: PromoProduct[] = [
     oldPrice: "6 000 ₽/шт.",
     stock: 85,
     discount: 15,
-    image: "https://picsum.photos/seed/prod1/600/400",
+    image: PLACEHOLDER_IMAGE,
   },
   {
     id: "prod2",
@@ -25,7 +31,7 @@ export const PROMO_PRODUCTS: PromoProduct[] = [
     oldPrice: "670 ₽/м.л.",
     stock: 441,
     discount: 9,
-    image: "https://picsum.photos/seed/prod2/600/400",
+    image: PLACEHOLDER_IMAGE,
   },
   {
     id: "prod3",
@@ -34,7 +40,7 @@ export const PROMO_PRODUCTS: PromoProduct[] = [
     oldPrice: "547 ₽/меш.",
     stock: 359,
     discount: 21,
-    image: "https://picsum.photos/seed/prod3/600/400",
+    image: PLACEHOLDER_IMAGE,
   },
   {
     id: "prod4",
@@ -43,7 +49,7 @@ export const PROMO_PRODUCTS: PromoProduct[] = [
     oldPrice: "360 ₽/шт.",
     stock: 112,
     discount: 12,
-    image: "https://picsum.photos/seed/prod4/600/400",
+    image: PLACEHOLDER_IMAGE,
   },
   {
     id: "prod5",
@@ -52,6 +58,6 @@ export const PROMO_PRODUCTS: PromoProduct[] = [
     oldPrice: "320 ₽/канистра",
     stock: 204,
     discount: 13,
-    image: "https://picsum.photos/seed/prod5/600/400",
+    image: PLACEHOLDER_IMAGE,
   },
 ];
