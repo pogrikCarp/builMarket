@@ -82,6 +82,18 @@ enum PaymentStatus {
   FAILED
 }
 
+// Статус списания товаров заказа со склада в МойСклад (создание документа
+// "Отгрузка" - см. src/lib/moysklad-orders.ts). PENDING - ещё не пробовали,
+// SYNCED - отгрузка создана и остаток списан, FAILED - попытка не удалась
+// (например, МойСклад временно недоступен - не блокирует сам заказ на сайте),
+// SKIPPED - синхронизация не настроена (нет MOYSKLAD_TOKEN).
+enum MoyskladSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  SKIPPED
+}
+
 model Order {
   id           String      @id @default(cuid())
   userId       String
@@ -109,6 +121,12 @@ model Order {
   paymentOperationId String?       @unique
   paymentAmount      Decimal?      @db.Decimal(12, 2)
   paidAt             DateTime?
+
+  // Списание остатков в МойСклад при оформлении заказа на сайте (см.
+  // src/lib/moysklad-orders.ts и вызов syncOrderToMoysklad в /api/orders).
+  moyskladSyncStatus MoyskladSyncStatus @default(PENDING)
+  moyskladDemandId   String?
+  moyskladSyncError  String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

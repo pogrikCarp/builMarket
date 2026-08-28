@@ -1,0 +1,9 @@
+DO $$ BEGIN
+  CREATE TYPE "MoyskladSyncStatus" AS ENUM ('PENDING', 'SYNCED', 'FAILED', 'SKIPPED');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "moyskladSyncStatus" "MoyskladSyncStatus" NOT NULL DEFAULT 'PENDING';
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "moyskladDemandId" TEXT;
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "moyskladSyncError" TEXT;

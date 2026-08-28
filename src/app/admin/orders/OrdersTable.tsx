@@ -14,6 +14,15 @@ type Order = {
   email: string | null;
   deliveryType: string | null;
   paymentType: string | null;
+  moyskladSyncStatus: "PENDING" | "SYNCED" | "FAILED" | "SKIPPED";
+  moyskladSyncError: string | null;
+};
+
+const MOYSKLAD_STATUS_BADGES: Record<Order["moyskladSyncStatus"], { label: string; className: string }> = {
+  PENDING: { label: "Списание...", className: "bg-slate-100 text-slate-500" },
+  SYNCED: { label: "Списано", className: "bg-emerald-100 text-emerald-700" },
+  FAILED: { label: "Ошибка списания", className: "bg-red-100 text-red-700" },
+  SKIPPED: { label: "Не списывалось", className: "bg-slate-100 text-slate-400" },
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -96,6 +105,7 @@ export function OrdersTable() {
                 <th className="py-2 pr-4">Клиент</th>
                 <th className="py-2 pr-4">Сумма</th>
                 <th className="py-2 pr-4">Статус</th>
+                <th className="py-2 pr-4">МойСклад</th>
               </tr>
             </thead>
             <tbody>
@@ -127,6 +137,14 @@ export function OrdersTable() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${MOYSKLAD_STATUS_BADGES[o.moyskladSyncStatus].className}`}
+                      title={o.moyskladSyncStatus === "FAILED" ? o.moyskladSyncError ?? undefined : undefined}
+                    >
+                      {MOYSKLAD_STATUS_BADGES[o.moyskladSyncStatus].label}
+                    </span>
                   </td>
                 </tr>
               ))}

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { checkStockAvailability } from "@/lib/moysklad-orders";
+import { syncOrderToMoysklad } from "@/lib/order-stock-sync";
 
 function normalizePhone(value: unknown) {
   const digits = String(value ?? "").replace(/\D/g, "");
@@ -54,6 +56,32 @@ export async function POST(request: Request) {
 
     if (normalizedItems.length === 0) {
       return NextResponse.json({ error: "В заказе нет корректных товаров" }, { status: 400 });
+    }
+
+    // Проверяем наличие товаров прямо перед оформлением по свежим данным
+    // МойСклад - заказать то, чего нет на складе (или больше, чем есть),
+    // нельзя. Если саму проверку выполнить не удалось (МойСклад недоступен) -
+    // тоже отказываем в оформлении, чтобы не допустить "перепродажи".
+    let stockCheck: Awaited<ReturnType<typeof checkStockAvailability>>;
+    try {
+      stockCheck = await checkStockAvailability(normalizedItems);
+    } catch (error) {
+      console.error("[orders] Не удалось проверить наличие товаров", error);
+      return NextResponse.json(
+        { error: "Не удалось проверить наличие товаров на складе, попробуйте оформить заказ ещё раз через минуту" },
+        { status: 503 }
+      );
+    }
+
+    if (stockCheck.problems.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Некоторых товаров не хватает на складе - обновите количество в корзине",
+          code: "OUT_OF_STOCK",
+          items: stockCheck.problems,
+        },
+        { status: 409 }
+      );
     }
 
     const totalKopecks = normalizedItems.reduce((sum: number, item: OrderItemSnapshot) => sum + item.price * item.quantity, 0);
@@ -122,6 +150,13 @@ export async function POST(request: Request) {
         },
       });
     });
+
+    // Списание в МойСклад запускаем в фоне, не дожидаясь ответа - наличие уже
+    // проверено выше, а сам МойСклад может быть временно медленным/недоступным
+    // (лимитер запросов при 429 повторяет попытку с задержками до ~15 сек) -
+    // это не должно задерживать подтверждение заказа покупателю. Результат
+    // (успех/ошибка) сохраняется в самом заказе и виден в админке.
+    void syncOrderToMoysklad(order);
 
     return NextResponse.json(
       {

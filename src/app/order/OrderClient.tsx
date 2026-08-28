@@ -57,12 +57,15 @@ function formatPrice(value?: number) {
   });
 }
 
+type StockProblem = { id: string; name: string; available: number; requested: number };
+
 export default function OrderClient() {
-  const { items, itemCount, total, clearCart } = useCart();
+  const { items, itemCount, total, clearCart, setQuantity } = useCart();
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("pickup");
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [stockProblems, setStockProblems] = useState<StockProblem[] | null>(null);
   const [accountCreated, setAccountCreated] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const [successCreatedAt, setSuccessCreatedAt] = useState<Date | null>(null);
@@ -126,6 +129,7 @@ export default function OrderClient() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitError(null);
+    setStockProblems(null);
     setIsSubmitting(true);
 
     try {
@@ -149,7 +153,16 @@ export default function OrderClient() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Не удалось оформить заказ");
+      if (!response.ok) {
+        // Товара не хватило на складе (см. checkStockAvailability в
+        // src/app/api/orders/route.ts) - показываем, чего конкретно не хватает,
+        // и даём кнопку, чтобы сразу привести корзину к доступному количеству.
+        if (response.status === 409 && data.code === "OUT_OF_STOCK" && Array.isArray(data.items)) {
+          setStockProblems(data.items);
+          throw new Error(data.error ?? "Некоторых товаров не хватает на складе");
+        }
+        throw new Error(data.error ?? "Не удалось оформить заказ");
+      }
 
       setSubmittedItems(items);
       setSubmittedTotal(total);
@@ -162,6 +175,13 @@ export default function OrderClient() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const fixStockAndRetry = () => {
+    if (!stockProblems) return;
+    stockProblems.forEach((problem) => setQuantity(problem.id, problem.available));
+    setStockProblems(null);
+    setSubmitError(null);
   };
 
   const renderSummary = () => {
@@ -374,7 +394,25 @@ export default function OrderClient() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {submitError && (
               <div className="rounded-[28px] border border-red-200 bg-red-50 px-6 py-5 text-sm leading-6 text-red-900 shadow-sm">
-                {submitError}
+                <p>{submitError}</p>
+                {stockProblems && stockProblems.length > 0 && (
+                  <>
+                    <ul className="mt-3 space-y-1 text-red-700">
+                      {stockProblems.map((problem) => (
+                        <li key={problem.id}>
+                          {problem.name}: заказано {problem.requested} шт., доступно {problem.available} шт.
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      onClick={fixStockAndRetry}
+                      className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-700"
+                    >
+                      Уменьшить до доступного количества
+                    </button>
+                  </>
+                )}
               </div>
             )}
 

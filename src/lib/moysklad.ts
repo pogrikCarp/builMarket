@@ -173,7 +173,7 @@ export type MoyskladAssortmentResponse = {
   };
 };
 
-function getAuthHeaders() {
+export function getAuthHeaders() {
   const token = getMoyskladToken();
   if (!token) {
     throw new Error("MOYSKLAD_TOKEN is not set");
@@ -184,7 +184,11 @@ function getAuthHeaders() {
   };
 }
 
-function buildUrl(path: string, params?: URLSearchParams) {
+export function isMoyskladConfigured() {
+  return Boolean(getMoyskladToken());
+}
+
+export function buildUrl(path: string, params?: URLSearchParams) {
   const query = params ? `?${params.toString()}` : "";
   return `${BASE_URL}${path}${query}`;
 }
