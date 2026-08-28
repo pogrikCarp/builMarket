@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkStockAvailability } from "@/lib/moysklad-orders";
 import { syncOrderToMoysklad } from "@/lib/order-stock-sync";
+import { sendOrderCreatedNotification } from "@/lib/order-notify";
 
 function normalizePhone(value: unknown) {
   const digits = String(value ?? "").replace(/\D/g, "");
@@ -157,6 +158,11 @@ export async function POST(request: Request) {
     // это не должно задерживать подтверждение заказа покупателю. Результат
     // (успех/ошибка) сохраняется в самом заказе и виден в админке.
     void syncOrderToMoysklad(order);
+
+    // Письмо о заказе (менеджерам + покупателю, если указал email) - тоже не
+    // блокирует ответ: если SMTP на сервере не настроен или временно недоступен,
+    // заказ всё равно считается оформленным, ошибка только логируется.
+    void sendOrderCreatedNotification(order);
 
     return NextResponse.json(
       {

@@ -1,6 +1,7 @@
 import type { Order } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getYookassaPayment, isYookassaConfigured } from "@/lib/yookassa";
+import { sendOrderPaidNotification } from "@/lib/order-notify";
 
 /**
  * Сверяет статус заказа с реальным статусом платежа в ЮKassa и обновляет БД,
@@ -30,7 +31,7 @@ export async function syncYookassaOrderStatus(order: Order): Promise<Order> {
   }
 
   if (payment.status === "succeeded" && payment.paid) {
-    return prisma.order.update({
+    const updated = await prisma.order.update({
       where: { id: order.id },
       data: {
         paymentStatus: "PAID",
@@ -38,6 +39,9 @@ export async function syncYookassaOrderStatus(order: Order): Promise<Order> {
         paidAt: order.paidAt ?? new Date(),
       },
     });
+    // Не блокируем ни вебхук, ни опрос статуса заказом покупателем ожиданием отправки письма.
+    void sendOrderPaidNotification(updated);
+    return updated;
   }
 
   if (payment.status === "canceled" && order.paymentStatus !== "FAILED") {

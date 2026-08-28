@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getAssortmentIdsForSitemap, getProductFolders } from "@/lib/moysklad";
 import { LOOKBOOKS } from "@/lib/lookbooks";
+import { BRANDS } from "@/lib/brands";
 import { SITE_URL } from "@/lib/seo";
 
 // Карта сайта - отдельный роут со своим кэшем; обновляется раз в час, поэтому
@@ -47,6 +48,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   entries.push(
     ...LOOKBOOKS.map((lookbook) => ({
       url: `${SITE_URL}/lookbooks/${lookbook.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as ChangeFrequency,
+      priority: 0.5,
+    }))
+  );
+
+  entries.push(
+    ...BRANDS.map((brand) => ({
+      url: `${SITE_URL}/brands/${brand.slug}`,
       lastModified: now,
       changeFrequency: "monthly" as ChangeFrequency,
       priority: 0.5,

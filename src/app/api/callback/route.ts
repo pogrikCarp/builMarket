@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import nodemailer, { type Transporter } from "nodemailer";
+import { escapeHtml, getMailTransporter } from "@/lib/mailer";
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 5;
@@ -23,39 +23,10 @@ function stripControlChars(value: string): string {
   return value.replace(/[\r\n\t\0]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 const SUSPICIOUS_PATTERN = /[\r\n]|bcc\s*:|cc\s*:|content-type\s*:|mime-version\s*:|<script/i;
 
 function isSafeString(value: string): boolean {
   return !SUSPICIOUS_PATTERN.test(value);
-}
-
-let cachedTransporter: Transporter | null = null;
-
-function getTransporter(): Transporter | null {
-  if (cachedTransporter) return cachedTransporter;
-
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-
-  const port = Number(process.env.SMTP_PORT ?? 587);
-  cachedTransporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: process.env.SMTP_SECURE === "true" || port === 465,
-    auth: { user, pass },
-  });
-  return cachedTransporter;
 }
 
 export async function POST(request: Request) {
@@ -93,7 +64,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Некорректные данные" }, { status: 400 });
     }
 
-    const transporter = getTransporter();
+    const transporter = getMailTransporter();
     if (!transporter) {
       console.error(
         "[api/callback] SMTP не настроен: заполните SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS в .env на сервере."

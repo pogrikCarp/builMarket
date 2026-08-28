@@ -2,32 +2,25 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
+import JsonLd from "@/components/JsonLd";
 import { prisma } from "@/lib/prisma";
-import { buildMetadata } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
+import { BRANDS as BRAND_PROFILES } from "@/lib/brands";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildMetadata({
   title: "Бренды",
-  description: "Бренды-партнёры ДомСтрой: проверенные производители стройматериалов и электроинструментов с гарантией поставки.",
+  description: "Бренды-партнёры ДомСтрой: Fengbao, Edon, Redbo, Makita, РЕСАНТА - проверенные производители электроинструмента и техники с гарантией поставки.",
   path: "/brands",
 });
 
-const BRANDS = [
-  { name: "Fengbao", logo: "/comp/1fengbao.webp" },
-  { name: "Edon", logo: "/comp/edon.jpg" },
-  { name: "Redbo", logo: "/comp/redbo.jpg" },
-  { name: "Makita", logo: "/comp/makita.jpg" },
-  { name: "Ресанта", logo: "/comp/resanta.jpg" },
-  { name: "Бренд 6", logo: "/comp/comp3.png" },
-  { name: "Бренд 7", logo: "/comp/comp4.jpg" },
-  { name: "Бренд 8", logo: "/comp/comp5.png" },
-  { name: "Бренд 9", logo: "/comp/comp6.jpg" },
-  { name: "Бренд 10", logo: "/comp/comp7.jpg" },
-  { name: "Бренд 11", logo: "/comp/comp8.jpg" },
-  { name: "Бренд 12", logo: "/comp/comp9.webp" },
-  { name: "Бренд 13", logo: "/comp/comp10.jpg" },
-];
+// Реальные бренды-партнёры - у каждого есть отдельная SEO-страница с описанием,
+// категориями и (если бренд есть в остатках МойСклад) популярными товарами, см.
+// src/lib/brands.ts и src/app/brands/[slug]/page.tsx. Безымянные заглушки
+// "Бренд 6", "Бренд 7" и т.д. намеренно убраны - они создавали впечатление
+// технически незавершённого сайта.
+const BRANDS = BRAND_PROFILES.map((brand) => ({ name: brand.name, logo: brand.logo, slug: brand.slug }));
 
 const BRAND_NOTES = [
   "Работаем напрямую с производителя и официальными дилерами",
@@ -47,11 +40,17 @@ export default async function BrandsPage() {
     })),
     ...media
       .filter((item) => item.sortOrder >= BRANDS.length && item.image)
-      .map((item) => ({ name: item.title, logo: item.image as string })),
+      .map((item) => ({ name: item.title, logo: item.image as string, slug: undefined as string | undefined })),
   ];
 
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Главная", path: "/" },
+          { name: "Бренды", path: "/brands" },
+        ])}
+      />
       <main>
         <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#fff7e8] via-white to-[#f7f1e6]" />
@@ -83,13 +82,34 @@ export default async function BrandsPage() {
             <h2 className="mt-2 text-3xl font-semibold text-slate-900">Бренды партнёров ДомСтрой</h2>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {brands.map((brand) => (
-              <div key={brand.name} className="rounded-[28px] border border-slate-100 bg-white/90 p-5 shadow-sm">
-                <div className="flex h-24 items-center justify-center rounded-2xl bg-[#fdf8f1]">
-                  <Image src={brand.logo} alt={brand.name} width={180} height={80} className="h-16 w-auto object-contain" />
+            {brands.map((brand) => {
+              const content = (
+                <>
+                  <div className="flex h-24 items-center justify-center rounded-2xl bg-[#fdf8f1]">
+                    <Image src={brand.logo} alt={brand.name} width={180} height={80} className="h-16 w-auto object-contain" />
+                  </div>
+                  <p className="mt-4 text-center text-sm font-semibold text-slate-700">{brand.name}</p>
+                  {brand.slug && (
+                    <span className="mt-1 block text-center text-xs font-semibold uppercase tracking-wide text-amber-600">
+                      О бренде →
+                    </span>
+                  )}
+                </>
+              );
+              return brand.slug ? (
+                <Link
+                  key={brand.name}
+                  href={`/brands/${brand.slug}`}
+                  className="rounded-[28px] border border-slate-100 bg-white/90 p-5 shadow-sm transition hover:-translate-y-1 hover:border-amber-200 hover:shadow-md"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div key={brand.name} className="rounded-[28px] border border-slate-100 bg-white/90 p-5 shadow-sm">
+                  {content}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

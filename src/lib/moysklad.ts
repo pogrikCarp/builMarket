@@ -247,6 +247,13 @@ async function enrichItemsWithImages(
   });
 }
 
+// Спецсимволы синтаксиса фильтра МойСклад (~ ; = < > !) вырезаем из
+// пользовательской поисковой строки, чтобы она не могла сломать сам синтаксис
+// фильтра или случайно добавить постороннее условие.
+function sanitizeFilterSearchValue(value: string): string {
+  return value.replace(/[~;=<>!]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export async function getAssortment(
   limit = 100,
   offset = 0,
@@ -258,7 +265,15 @@ export async function getAssortment(
     params.append("limit", String(limit));
     params.append("offset", String(offset));
     params.append("expand", "productFolder,productFolder.productFolder,images,attributes");
-    if (search) params.append("search", search);
+    // ВАЖНО: параметр search= у entity/assortment в МойСклад на практике не
+    // фильтрует выборку вообще (проверено напрямую на реальном аккаунте -
+    // возвращает все товары независимо от текста запроса, включая заведомо
+    // несуществующие строки). Из-за этого поиск товара, например, по бренду
+    // "edon" в админке акций выдавал случайные первые товары каталога.
+    // filter=name~... (оператор "подобие"/contains) на том же эндпоинте
+    // работает корректно и даёт настоящий поиск по подстроке в названии.
+    const safeSearch = search ? sanitizeFilterSearchValue(search) : "";
+    if (safeSearch) params.append("filter", `name~${safeSearch}`);
 
     const url = buildUrl("/entity/assortment", params);
 

@@ -880,7 +880,7 @@ export default function HomeClient() {
         <section className="section-surface py-12">
           <div className={CONTENT_CONTAINER}>
             <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <SectionTitle title="Наборы" subtitle="lookbooks" className="mb-0" />
+              <SectionTitle title="Готовые наборы электроинструментов" subtitle="lookbooks" className="mb-0" />
               <Link
                 href="/lookbooks"
                 className="shrink-0 text-xs font-semibold uppercase tracking-[0.25em] text-amber-600 transition hover:text-slate-900 sm:pt-5 sm:tracking-[0.35em]"

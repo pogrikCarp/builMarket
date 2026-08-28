@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
+import JsonLd from "@/components/JsonLd";
 import { LOOKBOOKS } from "@/lib/lookbooks";
-import { buildMetadata } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
   title: "Готовые наборы электроинструментов",
-  description: "Готовые наборы аккумуляторных электроинструментов ДомСтрой — 2в1, 3в1, 4в1 и 6в1 — подберите комплект под задачу.",
+  description: "Готовые наборы аккумуляторных электроинструментов ДомСтрой — 2в1, 3в1, 4в1 и 6в1 — характеристики, сравнение, цена и наличие.",
   path: "/lookbooks",
 });
 
 export default function LookbooksPage() {
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Главная", path: "/" },
+          { name: "Готовые наборы электроинструментов", path: "/lookbooks" },
+        ])}
+      />
       <main>
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#fff7e8] via-white to-[#f7f1e6]" />
@@ -20,10 +27,11 @@ export default function LookbooksPage() {
             <Link href="/" className="text-xs font-semibold uppercase tracking-[0.45em] text-amber-500">
               ← ДомСтрой
             </Link>
-            <p className="mt-8 text-sm uppercase tracking-[0.35em] text-amber-600">lookbooks</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">Готовые наборы материалов</h1>
+            <p className="mt-8 text-sm uppercase tracking-[0.35em] text-amber-600">готовые наборы электроинструментов</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">Готовые наборы электроинструментов</h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-              Готовые наборы аккумуляторных электроинструментов для стройки и ремонта — подберите комплект под задачу.
+              Готовые наборы аккумуляторных электроинструментов на единой платформе 21В — 2в1, 3в1, 4в1 и 6в1. На странице каждого набора —
+              характеристики инструментов, сравнение комплектов, актуальная цена и наличие.
             </p>
           </div>
         </section>
