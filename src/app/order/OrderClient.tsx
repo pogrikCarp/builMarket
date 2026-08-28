@@ -230,7 +230,7 @@ export default function OrderClient() {
               </Link>
               {paidOrderInfo && paidOrderInfo.paymentStatus !== "PAID" && (
                 <a
-                  href={`/api/payments/yoomoney/pay?order=${encodeURIComponent(paidOrderInfo.number)}`}
+                  href={`/api/payments/yookassa/pay?order=${encodeURIComponent(paidOrderInfo.number)}`}
                   className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
                 >
                   Попробовать оплатить снова
@@ -296,27 +296,19 @@ export default function OrderClient() {
                 <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900">₽</div>
                   <div>
-                    <p className="font-semibold text-slate-900">Онлайн-оплата через ЮMoney</p>
+                    <p className="font-semibold text-slate-900">Онлайн-оплата через ЮKassa</p>
                     <p className="text-xs text-slate-500">Сумма к оплате: {formatPrice(submittedTotal ?? total)}</p>
                   </div>
                 </div>
                 <p className="mt-4 text-xs leading-6 text-slate-500">
-                  Можете оплатить сразу онлайн или дождаться подтверждения менеджера и оплатить любым другим удобным способом.
+                  Можете оплатить сразу онлайн (карта, СБП и другие способы на странице ЮKassa) или дождаться подтверждения менеджера и оплатить любым другим удобным способом.
                 </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <a
-                    href={`/api/payments/yoomoney/pay?order=${encodeURIComponent(successOrderId)}&method=AC`}
-                    className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950"
-                  >
-                    Оплатить картой
-                  </a>
-                  <a
-                    href={`/api/payments/yoomoney/pay?order=${encodeURIComponent(successOrderId)}&method=PC`}
-                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-                  >
-                    Оплатить из кошелька ЮMoney
-                  </a>
-                </div>
+                <a
+                  href={`/api/payments/yookassa/pay?order=${encodeURIComponent(successOrderId)}`}
+                  className="mt-4 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950"
+                >
+                  Оплатить
+                </a>
                 <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
                   Обратите внимание: если вы передумаете, обратитесь к менеджеру для отмены и возврата средств.
                 </div>

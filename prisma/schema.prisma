@@ -101,9 +101,9 @@ model Order {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  // Онлайн-оплата через ЮMoney (см. src/lib/yoomoney.ts). paymentOperationId хранит
-  // operation_id из уведомления ЮMoney - используется для защиты от повторной
-  // обработки одного и того же уведомления (ЮMoney может прислать его до 3 раз).
+  // Онлайн-оплата через ЮKassa (см. src/lib/yookassa.ts). paymentOperationId хранит
+  // id платежа ЮKassa - по нему уведомление о статусе перепроверяется через API
+  // (GET /v3/payments/{id}), а не берётся из тела уведомления напрямую.
   paymentStatus      PaymentStatus @default(PENDING)
   paymentProvider    String?
   paymentOperationId String?       @unique
