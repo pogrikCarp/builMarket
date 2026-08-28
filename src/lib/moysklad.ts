@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { moyskladFetch } from "./moysklad-limiter";
 
 const BASE_URL = `https://api.moysklad.ru/api/remap/1.2`;
 const ENV_FILES = [".env.local", ".env", "envir.env"];
@@ -14,6 +15,14 @@ const MOYSKLAD_IMAGE_REVALIDATE_SECONDS = 3600;
 // значительно дольше обычного (карта сайта не обязана обновляться поминутно),
 // это отдельный от каталога запрос и не должно создавать лишнюю нагрузку на МойСклад.
 const MOYSKLAD_SITEMAP_REVALIDATE_SECONDS = 3600;
+// Сколько максимум ждём подгрузку фотографий для карточек каталога, прежде чем
+// отдать ответ пользователю. Если кэш "холодный" (перезапуск сервера, одновременное
+// истечение TTL у многих товаров) и нужно догрузить сотни фото - лимитер запросов
+// (moysklad-limiter.ts) сам аккуратно "размажет" их по времени в фоне, не блокируя
+// текущий ответ и не нарушая лимиты МойСклад. Часть карточек в эту секунду покажется
+// без фото - на СЛЕДУЮЩЕМ обновлении страницы (кэш живёт MOYSKLAD_IMAGE_REVALIDATE_SECONDS)
+// фото уже будут закэшированы фоновой догрузкой.
+const ENRICH_IMAGES_TIME_BUDGET_MS = 4000;
 
 type CacheEntry<T> = { value: T; expiresAt: number };
 
@@ -33,10 +42,20 @@ type CacheEntry<T> = { value: T; expiresAt: number };
 // Дополнительно дедуплицируем параллельные запросы с одинаковым ключом (например,
 // когда несколько посетителей открывают каталог одновременно сразу после
 // перезапуска сервера, когда кэш ещё пуст) - иначе они бы независимо ударили в API.
+// Верхняя граница числа записей в кэше - защита от неограниченного роста памяти
+// (например, если каждый посещённый товар добавляет свой ключ product:{id}).
+// При превышении удаляем самые старые записи (Map хранит порядок вставки).
+const MAX_CACHE_ENTRIES = 5000;
+
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlightRequests = new Map<string, Promise<unknown>>();
 
-async function withMemoryCache<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
+async function withMemoryCache<T>(
+  key: string,
+  ttlMs: number,
+  fetcher: () => Promise<T>,
+  shouldCache: (value: T) => boolean = () => true
+): Promise<T> {
   const cached = memoryCache.get(key) as CacheEntry<T> | undefined;
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -48,7 +67,13 @@ async function withMemoryCache<T>(key: string, ttlMs: number, fetcher: () => Pro
   const promise = (async () => {
     try {
       const value = await fetcher();
-      memoryCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+      if (shouldCache(value)) {
+        if (memoryCache.size >= MAX_CACHE_ENTRIES) {
+          const oldestKey = memoryCache.keys().next().value;
+          if (oldestKey !== undefined) memoryCache.delete(oldestKey);
+        }
+        memoryCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+      }
       return value;
     } finally {
       inFlightRequests.delete(key);
@@ -180,28 +205,36 @@ async function enrichItemsWithImages(
   if (itemsNeedingImages.length === 0) return items;
 
   const imagesByItemId = new Map<string, MoyskladImage[]>();
-  await Promise.all(
-    itemsNeedingImages.map(async (item) => {
-      try {
-        const rows = await withMemoryCache(
-          `item-images:${item.id}`,
-          MOYSKLAD_IMAGE_REVALIDATE_SECONDS * 1000,
-          async () => {
-            const res = await fetch(item.images!.meta.href, {
-              headers: getAuthHeaders(),
-              cache: "no-store",
-            });
-            if (!res.ok) throw new Error(`MoySklad API error: ${res.status}`);
-            const data: { rows?: MoyskladImage[] } = await res.json();
-            return data.rows ?? [];
-          }
-        );
-        imagesByItemId.set(item.id, rows);
-      } catch {
-        // Фото недоступно - карточка просто покажет плейсхолдер
-      }
-    })
-  );
+  const tasks = itemsNeedingImages.map(async (item) => {
+    try {
+      const rows = await withMemoryCache(
+        `item-images:${item.id}`,
+        MOYSKLAD_IMAGE_REVALIDATE_SECONDS * 1000,
+        async () => {
+          const res = await moyskladFetch(item.images!.meta.href, {
+            headers: getAuthHeaders(),
+            cache: "no-store",
+          });
+          if (!res.ok) throw new Error(`MoySklad API error: ${res.status}`);
+          const data: { rows?: MoyskladImage[] } = await res.json();
+          return data.rows ?? [];
+        }
+      );
+      imagesByItemId.set(item.id, rows);
+    } catch {
+      // Фото недоступно - карточка просто покажет плейсхолдер
+    }
+  });
+
+  // Не блокируем ответ пользователю на всё время догрузки (при холодном кэше это
+  // могут быть сотни товаров, а лимитер запросов намеренно "размазывает" их по времени
+  // - см. комментарий у ENRICH_IMAGES_TIME_BUDGET_MS). Задачи, не успевшие завершиться
+  // за отведённый бюджет, продолжают выполняться в фоне и просто прогревают кэш
+  // (withMemoryCache) для следующего запроса.
+  await Promise.race([
+    Promise.allSettled(tasks),
+    new Promise((resolve) => setTimeout(resolve, ENRICH_IMAGES_TIME_BUDGET_MS)),
+  ]);
 
   return items.map((item) => {
     const rows = imagesByItemId.get(item.id);
@@ -225,7 +258,7 @@ export async function getAssortment(
 
     const url = buildUrl("/entity/assortment", params);
 
-    const res = await fetch(url, {
+    const res = await moyskladFetch(url, {
       headers: getAuthHeaders(),
       cache: "no-store",
     });
@@ -264,7 +297,7 @@ export async function getProductById(
     let lastError: Error | null = null;
     for (const type of typesToTry) {
       const url = buildUrl(`/entity/${type}/${id}`, params);
-      const res = await fetch(url, {
+      const res = await moyskladFetch(url, {
         headers: getAuthHeaders(),
         cache: "no-store",
       });
@@ -284,22 +317,34 @@ export async function getProductById(
  * Принимает только ссылки на сам МойСклад API - защита от использования
  * прокси-роута как открытого релея на произвольные адреса.
  */
+// Верхняя граница размера картинки, которую храним в памяти процесса - крупные
+// исходники (>3МБ) не кэшируем на сервере, чтобы не раздувать память при большом
+// каталоге, но всё равно отдаём их через лимитер (защита от burst остаётся).
+const MAX_CACHEABLE_IMAGE_BYTES = 3 * 1024 * 1024;
+
 export async function fetchMoyskladImageBytes(href: string) {
   if (!href.startsWith(BASE_URL)) {
     throw new Error("Недопустимый адрес изображения");
   }
 
-  const res = await fetch(href, {
-    headers: { ...getAuthHeaders(), Accept: "image/png,image/jpeg,image/*;q=0.8,*/*;q=0.5" },
-    next: { revalidate: MOYSKLAD_IMAGE_REVALIDATE_SECONDS },
-  });
-  if (!res.ok) {
-    throw new Error(`MoySklad API error: ${res.status}`);
-  }
+  return withMemoryCache(
+    `image-bytes:${href}`,
+    MOYSKLAD_IMAGE_REVALIDATE_SECONDS * 1000,
+    async () => {
+      const res = await moyskladFetch(href, {
+        headers: { ...getAuthHeaders(), Accept: "image/png,image/jpeg,image/*;q=0.8,*/*;q=0.5" },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        throw new Error(`MoySklad API error: ${res.status}`);
+      }
 
-  const contentType = res.headers.get("content-type") ?? "image/jpeg";
-  const buffer = await res.arrayBuffer();
-  return { buffer, contentType };
+      const contentType = res.headers.get("content-type") ?? "image/jpeg";
+      const buffer = await res.arrayBuffer();
+      return { buffer, contentType };
+    },
+    (value) => value.buffer.byteLength <= MAX_CACHEABLE_IMAGE_BYTES
+  );
 }
 
 // Чистые функции-форматтеры (без node:fs) вынесены в moysklad-format.ts,
@@ -327,7 +372,7 @@ export async function getAssortmentIdsForSitemap(maxItems = 5000): Promise<strin
       params.append("limit", String(limit));
       params.append("offset", String(offset));
       const url = buildUrl("/entity/assortment", params);
-      const res = await fetch(url, {
+      const res = await moyskladFetch(url, {
         headers: getAuthHeaders(),
         cache: "no-store",
       });
@@ -358,7 +403,7 @@ export async function getProductFolders(): Promise<MoyskladProductFolderResponse
       params.append("order", "name,asc");
       params.append("expand", "productFolder");
       const url = buildUrl("/entity/productfolder", params);
-      const res = await fetch(url, {
+      const res = await moyskladFetch(url, {
         headers: getAuthHeaders(),
         cache: "no-store",
       });
@@ -393,7 +438,7 @@ export async function getAssortmentByFolder(
     params.append("filter", `productFolder=${folderHref};withSubFolders=true`);
     params.append("expand", "productFolder,productFolder.productFolder,images,attributes");
     const url = buildUrl("/entity/assortment", params);
-    const res = await fetch(url, {
+    const res = await moyskladFetch(url, {
       headers: getAuthHeaders(),
       cache: "no-store",
     });
