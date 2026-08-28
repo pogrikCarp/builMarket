@@ -78,19 +78,36 @@ export default function OrderClient() {
   useEffect(() => {
     if (!paidOrderNumber) return;
     let cancelled = false;
+    let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     setPaidOrderInfo(null);
     setPaidOrderError(null);
-    fetch(`/api/orders/${encodeURIComponent(paidOrderNumber)}`)
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? "Не удалось получить статус заказа");
-        if (!cancelled) setPaidOrderInfo(data.order);
-      })
-      .catch((error) => {
-        if (!cancelled) setPaidOrderError(error instanceof Error ? error.message : "Не удалось получить статус заказа");
-      });
+
+    // Каждый запрос статуса на сервере активно перепроверяет платёж напрямую
+    // в ЮKassa (см. src/lib/order-payment.ts), поэтому короткий опрос здесь
+    // сам "подхватит" оплату, даже если HTTP-уведомление от ЮKassa ещё не
+    // пришло или не настроено в личном кабинете - без ручного обновления страницы.
+    const poll = () => {
+      attempt += 1;
+      fetch(`/api/orders/${encodeURIComponent(paidOrderNumber)}`)
+        .then(async (response) => {
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error ?? "Не удалось получить статус заказа");
+          if (cancelled) return;
+          setPaidOrderInfo(data.order);
+          if (data.order.paymentStatus === "PENDING" && attempt < 10) {
+            timer = setTimeout(poll, 3000);
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) setPaidOrderError(error instanceof Error ? error.message : "Не удалось получить статус заказа");
+        });
+    };
+    poll();
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [paidOrderNumber]);
 
@@ -206,7 +223,8 @@ export default function OrderClient() {
                 <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Ожидаем подтверждение</p>
                 <h1 className="mt-4 text-2xl font-semibold text-slate-900">Заказ №{paidOrderInfo.number} пока не оплачен</h1>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
-                  Если вы уже перевели деньги, платёж обычно подтверждается в течение нескольких минут - обновите страницу чуть позже.
+                  Если вы уже перевели деньги - страница автоматически обновится сама, как только банк подтвердит платёж
+                  (обычно это занимает несколько секунд, иногда до пары минут). Обновлять страницу вручную не нужно.
                   Если вы отменили оплату, вы можете вернуться к заказу и попробовать снова.
                 </p>
               </>

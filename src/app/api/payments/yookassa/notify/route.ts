@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getYookassaPayment, isTrustedYookassaIp } from "@/lib/yookassa";
+import { syncYookassaOrderStatus } from "@/lib/order-payment";
 
 function getClientIp(request: Request): string | null {
   const forwardedFor = request.headers.get("x-forwarded-for");
@@ -52,29 +53,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  if (order.paymentStatus === "PAID") {
+  // payment.id может отличаться от order.paymentOperationId, если пользователь
+  // создавал несколько попыток оплаты - учитываем статус только последней попытки.
+  if (payment.id !== order.paymentOperationId) {
     return NextResponse.json({ ok: true });
   }
 
-  if (payment.status === "succeeded" && payment.paid) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus: "PAID",
-        paymentProvider: "yookassa",
-        paymentOperationId: payment.id,
-        paymentAmount: Number(payment.amount.value),
-        paidAt: new Date(),
-      },
-    });
+  const updated = await syncYookassaOrderStatus(order);
+  if (updated.paymentStatus === "PAID" && order.paymentStatus !== "PAID") {
     console.log(`[yookassa] Заказ №${orderNumber} оплачен: ${payment.amount.value} ${payment.amount.currency}, payment_id=${payment.id}`);
-  } else if (payment.status === "canceled" && payment.id === order.paymentOperationId) {
-    // Отменяем статус заказа только если это последняя попытка оплаты для него
-    // (пользователь мог создать несколько платежей, если пробовал оплатить повторно).
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { paymentStatus: "FAILED" },
-    });
   }
 
   return NextResponse.json({ ok: true });
