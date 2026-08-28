@@ -7,7 +7,8 @@ const LINKS = [
   { label: "Каталог", href: "/admin/catalog" },
   { label: "Заказы", href: "/admin/orders" },
   { label: "Пользователи", href: "/admin/users" },
-  { label: "Баннеры и акции", href: "/admin/banners" },
+  { label: "Баннеры", href: "/admin/banners" },
+  { label: "Акции", href: "/admin/promo" },
   { label: "Страницы", href: "/admin/pages" },
   { label: "SEO / Редиректы", href: "/admin/seo" },
 ];

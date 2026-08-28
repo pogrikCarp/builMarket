@@ -30,7 +30,7 @@ export default async function PersonalLayout({
       <header className="border-b border-slate-100 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="shrink-0">
-            <Image src="/logo.png" alt="ДомСтрой" width={120} height={50} className="h-10 w-auto object-contain" />
+            <Image src="/logo.png" alt="ДомСтрой" width={150} height={62} className="h-12 w-auto object-contain" />
           </Link>
           <div className="flex items-center gap-3 text-sm text-slate-600">
             <span>Привет, {displayName}</span>

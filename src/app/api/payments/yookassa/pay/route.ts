@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/seo";
-import { createYookassaPayment, isYookassaConfigured } from "@/lib/yookassa";
+import { createYookassaPayment, isYookassaConfigured, isYookassaReceiptEnabled, type ReceiptItem } from "@/lib/yookassa";
+
+type StoredOrderItem = { name?: string; price?: number; quantity?: number };
 
 // Создаёт платёж в ЮKassa и перенаправляет пользователя на страницу оплаты
 // (сценарий подтверждения Redirect, см. src/lib/yookassa.ts). Вызывается при
@@ -25,6 +27,17 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${SITE_URL}/order?paid=${encodeURIComponent(orderNumber)}`);
   }
 
+  let receiptItems: ReceiptItem[] | undefined;
+  if (isYookassaReceiptEnabled() && Array.isArray(order.items)) {
+    receiptItems = (order.items as StoredOrderItem[])
+      .filter((item) => item.name && item.quantity)
+      .map((item) => ({
+        description: item.name!,
+        quantity: item.quantity!,
+        amountRub: ((item.price ?? 0) * item.quantity!) / 100,
+      }));
+  }
+
   let payment;
   try {
     payment = await createYookassaPayment({
@@ -32,6 +45,9 @@ export async function GET(request: Request) {
       orderNumber: order.number,
       returnUrl: `${SITE_URL}/order?paid=${encodeURIComponent(orderNumber)}`,
       description: `Заказ №${order.number}`,
+      receiptEmail: order.email,
+      receiptPhone: order.phone,
+      receiptItems,
     });
   } catch (error) {
     console.error("[yookassa] Не удалось создать платёж", error);

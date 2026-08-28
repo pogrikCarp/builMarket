@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
-import CartButton from "@/components/cart/CartButton";
 import ProductCartControl from "@/components/cart/ProductCartControl";
-import FavoriteButton from "@/components/favorites/FavoriteButton";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductGallery from "@/components/ProductGallery";
 import SiteFooter from "@/components/SiteFooter";
+import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/JsonLd";
 import { formatAttributeValue, getItemGalleryUrls, getProductById, getProductFolders } from "@/lib/moysklad";
 import { getFolderPath } from "@/lib/folder-tree";
@@ -110,20 +108,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           { name: item.name, path: `/catalog/${id}` },
         ])}
       />
-      <header className="border-b border-slate-100 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex shrink-0 items-center">
-            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
-          </Link>
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" prefetch={false} className="font-semibold text-amber-600">Каталог</Link>
-            <Link href="/personal" className="text-slate-600 hover:text-slate-900">Кабинет</Link>
-            <FavoriteButton variant="inline" />
-            <CartButton variant="inline" />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 py-8">
         <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">

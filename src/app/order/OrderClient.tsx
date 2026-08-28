@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import CartButton from "@/components/cart/CartButton";
 import { useCart } from "@/components/cart/CartProvider";
+import SiteHeader from "@/components/layout/SiteHeader";
 
 type PaidOrderInfo = {
   number: string;
@@ -179,19 +178,7 @@ export default function OrderClient() {
   if (paidOrderNumber) {
     return (
       <div className="min-h-screen bg-stone-50 text-slate-900">
-        <header className="border-b border-slate-100 bg-white">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
-            <Link href="/" className="flex shrink-0 items-center">
-              <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
-            </Link>
-            <nav className="flex items-center gap-3 text-sm">
-              <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-              <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
-              <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
-              <CartButton variant="inline" />
-            </nav>
-          </div>
-        </header>
+        <SiteHeader />
 
         <main className="mx-auto max-w-3xl px-4 py-10">
           <div className="rounded-[32px] border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
@@ -251,19 +238,7 @@ export default function OrderClient() {
 
     return (
       <div className="min-h-screen bg-stone-50 text-slate-900">
-        <header className="border-b border-slate-100 bg-white">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
-            <Link href="/" className="flex shrink-0 items-center">
-              <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
-            </Link>
-            <nav className="flex items-center gap-3 text-sm">
-              <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-              <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
-              <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
-              <CartButton variant="inline" />
-            </nav>
-          </div>
-        </header>
+        <SiteHeader />
 
         <main className="mx-auto max-w-7xl px-4 py-8 md:py-12">
           <div className="mb-10">
@@ -339,19 +314,7 @@ export default function OrderClient() {
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-stone-50 text-slate-900">
-        <header className="border-b border-slate-100 bg-white">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
-            <Link href="/" className="flex shrink-0 items-center">
-              <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
-            </Link>
-            <nav className="flex items-center gap-3 text-sm">
-              <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-              <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
-              <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
-              <CartButton variant="inline" />
-            </nav>
-          </div>
-        </header>
+        <SiteHeader />
 
         <main className="mx-auto max-w-4xl px-4 py-10">
           <div className="rounded-[32px] border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
@@ -376,28 +339,13 @@ export default function OrderClient() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
-      <header className="border-b border-slate-100 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
-          <Link href="/" className="flex shrink-0 items-center">
-            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
-          </Link>
-          <nav className="flex items-center gap-3 text-sm">
-            <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
-            <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
-            <CartButton variant="inline" />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 py-8 md:py-10">
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Оформление заказа</p>
             <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl">Подтвердите состав и оставьте контакты</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-              Мы сохранили минималистичную структуру checkout: данные покупателя, способ получения, оплата и итоговый состав заказа справа.
-            </p>
           </div>
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
             {itemCount} {itemCount === 1 ? "товар" : itemCount < 5 ? "товара" : "товаров"} в заказе

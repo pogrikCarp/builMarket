@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import CartButton from "@/components/cart/CartButton";
 import { useCart } from "@/components/cart/CartProvider";
 import { useFavorites } from "@/components/favorites/FavoriteProvider";
+import SiteHeader from "@/components/layout/SiteHeader";
 
 function formatPrice(value?: number) {
   if (value == null) return "Цена по запросу";
@@ -21,18 +21,7 @@ export default function FavoritesClient() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
-      <header className="border-b border-slate-100 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
-          <Link href="/" className="flex shrink-0 items-center">
-            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
-          </Link>
-          <nav className="flex items-center gap-3 text-sm">
-            <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
-            <CartButton variant="inline" />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">

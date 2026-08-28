@@ -16,6 +16,15 @@ export function isYookassaConfigured() {
   return Boolean(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY);
 }
 
+// Чек 54-ФЗ нужен только если в личном кабинете ЮKassa подключена онлайн-касса
+// (сервис "Чеки"). Если она не подключена, а мы всё равно передадим поле receipt,
+// ЮKassa может отклонить создание платежа ошибкой вида "касса не настроена" - поэтому
+// это отдельный флаг, включаемый явно после проверки в личном кабинете ЮKassa
+// (Настройки → Чеки), а не включённый по умолчанию.
+export function isYookassaReceiptEnabled() {
+  return process.env.YOOKASSA_SEND_RECEIPTS === "true";
+}
+
 function authHeader() {
   const { shopId, secretKey } = getCredentials();
   return `Basic ${Buffer.from(`${shopId}:${secretKey}`).toString("base64")}`;
@@ -30,12 +39,38 @@ export type YookassaPayment = {
   confirmation?: { type: string; confirmation_url?: string };
 };
 
+export type ReceiptItem = { description: string; quantity: number; amountRub: number };
+
 export async function createYookassaPayment(options: {
   amountRub: number;
   orderNumber: string;
   returnUrl: string;
   description: string;
+  // Чек 54-ФЗ - собирается и отправляется только если явно включено через
+  // isYookassaReceiptEnabled() (см. комментарий там). Нужен email или телефон
+  // покупателя (хотя бы один) - иначе ЮKassa не примет чек.
+  receiptEmail?: string | null;
+  receiptPhone?: string | null;
+  receiptItems?: ReceiptItem[];
 }): Promise<YookassaPayment> {
+  const receipt =
+    options.receiptItems?.length && (options.receiptEmail || options.receiptPhone)
+      ? {
+          customer: {
+            ...(options.receiptEmail ? { email: options.receiptEmail } : {}),
+            ...(options.receiptPhone ? { phone: options.receiptPhone } : {}),
+          },
+          items: options.receiptItems.map((item) => ({
+            description: item.description.slice(0, 128),
+            quantity: item.quantity.toFixed(2),
+            amount: { value: item.amountRub.toFixed(2), currency: "RUB" },
+            vat_code: 1,
+            payment_subject: "commodity",
+            payment_mode: "full_payment",
+          })),
+        }
+      : undefined;
+
   const response = await fetch(`${API_BASE}/payments`, {
     method: "POST",
     headers: {
@@ -49,6 +84,7 @@ export async function createYookassaPayment(options: {
       confirmation: { type: "redirect", return_url: options.returnUrl },
       description: options.description,
       metadata: { order_id: options.orderNumber },
+      ...(receipt ? { receipt } : {}),
     }),
   });
 

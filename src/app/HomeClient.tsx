@@ -5,12 +5,20 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import CartButton from "@/components/cart/CartButton";
 import FavoriteButton from "@/components/favorites/FavoriteButton";
+import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
+import ProductCartControl from "@/components/cart/ProductCartControl";
 import SearchOverlay from "@/components/search/SearchOverlay";
 import CallbackModal from "@/components/CallbackModal";
 import { LOOKBOOKS } from "@/lib/lookbooks";
 import { buildFolderTree } from "@/lib/folder-tree";
 import SiteFooter from "@/components/SiteFooter";
-import { PROMO_PRODUCTS } from "@/lib/promo-products";
+import type { ResolvedPromoItem } from "@/lib/promo";
+import { getItemGalleryThumbnailUrls } from "@/lib/moysklad-format";
+
+function formatPrice(value?: number | null) {
+  if (value == null) return null;
+  return (value / 100).toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 });
+}
 
 type LinkItem = { label: string; href: string };
 type HomeMedia = {
@@ -584,6 +592,7 @@ const CertificatesCarousel = ({ cards }: { cards: CertificateCard[] }) => {
 export default function HomeClient() {
   const [callbackOpen, setCallbackOpen] = useState(false);
   const [homeMedia, setHomeMedia] = useState<HomeMedia[]>([]);
+  const [promoItems, setPromoItems] = useState<ResolvedPromoItem[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
@@ -591,6 +600,13 @@ export default function HomeClient() {
       .then((response) => (response.ok ? response.json() : { content: [] }))
       .then((data) => setHomeMedia(data.content ?? []))
       .catch(() => setHomeMedia([]));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/promo")
+      .then((response) => (response.ok ? response.json() : { items: [] }))
+      .then((data) => setPromoItems(data.items ?? []))
+      .catch(() => setPromoItems([]));
   }, []);
 
   const heroSlides = useMemo(
@@ -633,7 +649,7 @@ export default function HomeClient() {
       <div className="sticky top-0 z-[80] border-b border-slate-100 bg-white shadow-lg shadow-slate-900/5">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-3 sm:gap-5 sm:px-4">
           <Link href="/" className="flex shrink-0 items-center">
-            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
+            <Image src="/logo.png" alt="ДомСтрой" width={150} height={70} className="h-12 w-auto object-contain sm:h-14" />
           </Link>
           <Link
             href="/catalog"
@@ -818,27 +834,44 @@ export default function HomeClient() {
               </a>
               {/* Правая сетка товаров */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {PROMO_PRODUCTS.map((product) => (
-                  <div key={product.title} className="premium-card flex flex-col rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                    <div className="flex justify-end">
-                      <button type="button" className="text-slate-300 hover:text-red-400 transition">
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="mx-auto h-28 w-full overflow-hidden rounded bg-slate-50">
-                      <Image src={product.image} alt={product.title} width={200} height={112} className="h-full w-full object-cover" />
-                    </div>
-                    <p className="mt-2 text-xs font-medium leading-snug text-slate-800 line-clamp-2">{product.title}</p>
-                    <p className="mt-1 text-[11px] text-green-600">● В наличии: {product.stock}</p>
-                    <div className="mt-2 flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-slate-900">{product.price}</span>
-                      <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">-{product.discount}%</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 line-through">{product.oldPrice}</p>
-                  </div>
-                ))}
+                {promoItems.length === 0 && (
+                  <p className="col-span-full text-sm text-slate-400">Акции скоро появятся</p>
+                )}
+                {promoItems.map(({ promoId, item, oldPrice, discount }) => {
+                  const price = item.salePrices?.[0]?.value;
+                  const galleryUrls = getItemGalleryThumbnailUrls(item);
+                  return (
+                    <Link
+                      key={promoId}
+                      href={`/catalog/${item.id}?type=${item.meta.type}`}
+                      prefetch={false}
+                      className="premium-card flex flex-col rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:-translate-y-1"
+                    >
+                      <div className="relative">
+                        <ProductFavoriteToggle item={item} imageUrl={galleryUrls[0] ?? null} size="sm" className="absolute right-0 top-0 z-10" />
+                        {discount != null && (
+                          <span className="absolute left-0 top-0 z-10 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">−{discount}%</span>
+                        )}
+                        <div className="mx-auto h-28 w-full overflow-hidden rounded bg-slate-50">
+                          {galleryUrls[0] ? (
+                            <Image src={galleryUrls[0]} alt={item.name} width={200} height={112} className="h-full w-full object-contain" unoptimized />
+                          ) : (
+                            <div className="h-full w-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-2 flex-1 text-xs font-medium leading-snug text-slate-800 line-clamp-2">{item.name}</p>
+                      {item.quantity != null && <p className="mt-1 text-[11px] text-green-600">● В наличии: {item.quantity}</p>}
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        {formatPrice(price) && <span className="text-sm font-bold text-slate-900">{formatPrice(price)}</span>}
+                      </div>
+                      {oldPrice != null && <p className="text-[11px] text-slate-400 line-through">{formatPrice(oldPrice)}</p>}
+                      <div className="mt-2">
+                        <ProductCartControl item={item} size="sm" />
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           </div>

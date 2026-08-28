@@ -169,6 +169,22 @@ model Banner {
   updatedAt DateTime @updatedAt
 }
 
+// Блок "Акции" на главной и в каталоге (?section=promo): администратор выбирает
+// уже существующий товар МойСклад (productId) и задаёт ему предыдущую ("зачеркнутую")
+// цену. Актуальная цена, фото, наличие и переход на карточку товара всегда берутся
+// живыми из МойСклад (см. src/lib/promo.ts) - здесь хранится только сама привязка
+// товара к акции и старая цена.
+model PromoItem {
+  id        String   @id @default(cuid())
+  productId String   @unique
+  oldPrice  Decimal? @db.Decimal(12, 2)
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model StaticPage {
   id              String   @id @default(cuid())
   slug            String   @unique

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -9,7 +8,7 @@ import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle"
 import type { MoyskladAssortmentItem, MoyskladProductFolder } from "@/lib/moysklad";
 import { formatAttributeValue, getItemGalleryThumbnailUrls } from "@/lib/moysklad-format";
 import { buildFolderTree, getFolderPath } from "@/lib/folder-tree";
-import { PROMO_PRODUCTS } from "@/lib/promo-products";
+import type { ResolvedPromoItem } from "@/lib/promo";
 import ProductCardMedia from "@/components/catalog/ProductCardMedia";
 
 function formatPrice(value?: number) {
@@ -73,6 +72,7 @@ type Props = {
   initialOnlyInStock?: boolean;
   initialPriceFrom?: string;
   initialPriceTo?: string;
+  initialPromoItems?: ResolvedPromoItem[];
 };
 
 const isSortOption = (value?: string): value is SortOption =>
@@ -119,6 +119,7 @@ export default function CatalogBrowser({
   initialOnlyInStock = false,
   initialPriceFrom = "",
   initialPriceTo = "",
+  initialPromoItems = [],
 }: Props) {
   const initialFolder = useMemo(
     () => (initialFolderId ? folders.find((folder) => folder.id === initialFolderId) ?? null : null),
@@ -538,7 +539,7 @@ export default function CatalogBrowser({
             <p className="text-sm text-slate-400">
               {loading
                 ? "Загрузка..."
-                : `${activeSection === "promo" ? PROMO_PRODUCTS.length : visibleItems.length} товаров`}
+                : `${activeSection === "promo" ? initialPromoItems.length : visibleItems.length} товаров`}
             </p>
           </div>
           {loading && (
@@ -673,26 +674,47 @@ export default function CatalogBrowser({
 
         {activeSection === "promo" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {PROMO_PRODUCTS.map((product) => (
-              <div key={product.id} className="flex flex-col overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-                <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
-                  <Image src={product.image} alt={product.title} fill className="object-cover" sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 26vw, (min-width: 640px) 45vw, 100vw" />
-                  <span className="absolute right-3 top-3 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow">−{product.discount}%</span>
-                </div>
-                <div className="flex flex-1 flex-col p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-600">Акция</p>
-                  <h3 className="mt-2 flex-1 font-semibold leading-snug text-slate-900">{product.title}</h3>
-                  <p className="mt-3 text-xs text-green-600">● В наличии: {product.stock}</p>
-                  <div className="mt-2 flex flex-wrap items-baseline gap-2">
-                    <span className="text-lg font-bold text-amber-600">{product.price}</span>
-                    <span className="text-xs text-slate-400 line-through">{product.oldPrice}</span>
-                  </div>
-                  <a href="tel:+79160045522" className="mt-4 rounded-lg bg-amber-500 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-amber-600">
-                    Заказать
-                  </a>
-                </div>
+            {initialPromoItems.length === 0 && !loading && (
+              <div className="col-span-full flex h-48 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <p className="text-sm text-slate-400">Пока нет активных акций</p>
               </div>
-            ))}
+            )}
+            {initialPromoItems.map(({ promoId, item, oldPrice, discount }) => {
+              const price = item.salePrices?.[0]?.value;
+              const galleryUrls = getItemGalleryThumbnailUrls(item);
+              return (
+                <Link
+                  key={promoId}
+                  href={`/catalog/${item.id}?type=${item.meta.type}`}
+                  prefetch={false}
+                  className="flex flex-col justify-between overflow-hidden rounded-xl border border-amber-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                >
+                  <div>
+                    <div className="relative mb-4 overflow-hidden rounded-lg bg-white">
+                      <ProductFavoriteToggle item={item} imageUrl={galleryUrls[0] ?? null} size="sm" className="absolute right-2 top-2 z-10" />
+                      {discount != null && (
+                        <span className="absolute left-2 top-2 z-10 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow">−{discount}%</span>
+                      )}
+                      <div className="relative aspect-[4/3] w-full">
+                        <ProductCardMedia images={galleryUrls} alt={item.name} />
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-600">Акция</p>
+                    <p className="mt-1 font-semibold leading-snug text-slate-900">{item.name}</p>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        {formatPrice(price) && <p className="text-base font-bold text-amber-600">{formatPrice(price)}</p>}
+                        {oldPrice != null && <p className="text-xs text-slate-400 line-through">{formatPrice(oldPrice)}</p>}
+                      </div>
+                      {item.quantity != null && <p className="text-xs text-slate-500">В наличии: {item.quantity}</p>}
+                    </div>
+                    <ProductCartControl item={item} size="sm" />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <>

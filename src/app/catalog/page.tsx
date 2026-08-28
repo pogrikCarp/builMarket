@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import Image from "next/image";
-import CartButton from "@/components/cart/CartButton";
-import FavoriteButton from "@/components/favorites/FavoriteButton";
+import SiteHeader from "@/components/layout/SiteHeader";
 import { getAssortment, getAssortmentByFolder, getProductFolders } from "@/lib/moysklad";
 import CatalogBrowser from "@/components/CatalogBrowser";
 import JsonLd from "@/components/JsonLd";
 import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 import { getFolderPath } from "@/lib/folder-tree";
+import { getResolvedPromoItems } from "@/lib/promo";
 
 type CatalogSearchParams = {
   folder?: string;
@@ -83,11 +81,12 @@ export default async function CatalogPage({
     ? getAssortmentByFolder(selectedFolder.meta.href, 1000, 0)
     : getAssortment(1000, 0);
 
-  const itemsResult = await Promise.allSettled([itemsPromise]);
+  const [itemsResult, promoResult] = await Promise.allSettled([itemsPromise, getResolvedPromoItems()]);
 
   const folders = foldersResult.rows;
-  const initialItems = itemsResult[0].status === "fulfilled" ? itemsResult[0].value.rows : [];
-  const error = itemsResult[0].status === "rejected" ? "Ошибка загрузки данных из МойСклад" : null;
+  const initialItems = itemsResult.status === "fulfilled" ? itemsResult.value.rows : [];
+  const error = itemsResult.status === "rejected" ? "Ошибка загрузки данных из МойСклад" : null;
+  const initialPromoItems = promoResult.status === "fulfilled" ? promoResult.value : [];
 
   const folderPath = selectedFolder ? getFolderPath(selectedFolder, folders) : [];
   const pageHeading = initialSearch ? `Поиск: ${initialSearch}` : selectedFolder?.name ?? "Каталог товаров";
@@ -100,20 +99,7 @@ export default async function CatalogPage({
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
       <JsonLd data={buildBreadcrumbJsonLd(breadcrumbItems)} />
-      <header className="border-b border-slate-100 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex shrink-0 items-center">
-            <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
-          </Link>
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
-            <Link href="/catalog" prefetch={false} className="font-semibold text-amber-600">Каталог</Link>
-            <Link href="/personal" className="text-slate-600 hover:text-slate-900">Кабинет</Link>
-            <FavoriteButton variant="inline" />
-            <CartButton variant="inline" />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-6">
@@ -136,6 +122,7 @@ export default async function CatalogPage({
             initialOnlyInStock={params?.stock === "1"}
             initialPriceFrom={params?.priceFrom}
             initialPriceTo={params?.priceTo}
+            initialPromoItems={initialPromoItems}
           />
         </div>
       </main>

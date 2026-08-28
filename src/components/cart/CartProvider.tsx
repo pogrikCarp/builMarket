@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import Link from "next/link";
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "buildmarket-cart";
 const STORAGE_EVENT = "buildmarket-cart-change";
@@ -101,6 +102,16 @@ function subscribe(onStoreChange: () => void) {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const items = useSyncExternalStore(subscribe, readCartItems, readServerCartItems);
+  // Тост "товар добавлен в корзину" - на мобильных экранах кнопка корзины в хедере
+  // не всегда бросается в глаза, поэтому это основной способ убедиться, что товар
+  // точно добавлен, и сразу перейти в корзину без поиска кнопки.
+  const [toast, setToast] = useState<{ key: number; name: string } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const value = useMemo<CartContextValue>(() => {
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -119,20 +130,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               entry.id === item.id ? { ...entry, quantity: entry.quantity + 1, price: item.price } : entry
             )
           );
-          return;
+        } else {
+          writeCartItems([
+            ...current,
+            {
+              id: item.id,
+              name: item.name,
+              article: item.article,
+              code: item.code,
+              price: item.price,
+              quantity: 1,
+            },
+          ]);
         }
-
-        writeCartItems([
-          ...current,
-          {
-            id: item.id,
-            name: item.name,
-            article: item.article,
-            code: item.code,
-            price: item.price,
-            quantity: 1,
-          },
-        ]);
+        setToast({ key: Date.now(), name: item.name });
       },
       removeItem: (id) => {
         writeCartItems(readCartItems().filter((item) => item.id !== id));
@@ -152,7 +163,43 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
   }, [items]);
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      {toast && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[200] flex justify-center px-4 sm:bottom-6">
+          <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Товар добавлен в корзину</p>
+              <p className="truncate text-xs text-white/70">{toast.name}</p>
+            </div>
+            <Link
+              href="/basket"
+              onClick={() => setToast(null)}
+              className="shrink-0 rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-400"
+            >
+              Купить
+            </Link>
+            <button
+              type="button"
+              aria-label="Закрыть"
+              onClick={() => setToast(null)}
+              className="shrink-0 text-white/50 transition hover:text-white"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </CartContext.Provider>
+  );
 }
 
 export function useCart() {
