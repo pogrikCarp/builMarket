@@ -10,6 +10,7 @@ import ProductCartControl from "@/components/cart/ProductCartControl";
 import SearchOverlay from "@/components/search/SearchOverlay";
 import CallbackModal from "@/components/CallbackModal";
 import { LOOKBOOKS } from "@/lib/lookbooks";
+import { BRANDS as BRAND_PROFILES } from "@/lib/brands";
 import { buildFolderTree } from "@/lib/folder-tree";
 import SiteFooter from "@/components/SiteFooter";
 import type { ResolvedPromoItem } from "@/lib/promo";
@@ -65,18 +66,14 @@ const BRAND_LINKS: LinkItem[] = [
   { label: "Все сертификаты", href: "/certificates" },
 ];
 
-const BRANDS: { name: string; logo: string }[] = [
-  { name: "Fengbao", logo: "/comp/1fengbao.webp" },
-  { name: "Edon", logo: "/comp/edon.jpg" },
-  { name: "Redbo", logo: "/comp/redbo.jpg" },
-  { name: "Makita", logo: "/comp/makita.jpg" },
-  { name: "Ресанта", logo: "/comp/resanta.jpg" },
-  { name: "Бренд 6", logo: "/comp/comp3.png" },
-  { name: "Бренд 7", logo: "/comp/comp4.jpg" },
-  { name: "Бренд 8", logo: "/comp/comp5.png" },
-  { name: "Бренд 9", logo: "/comp/comp6.jpg" },
-  { name: "Бренд 10", logo: "/comp/comp7.jpg" },
-];
+// Тайтлы и лого пяти реальных брендов совпадают с src/lib/brands.ts - оттуда же
+// берём slug, чтобы логотип на главной вёл на страницу конкретного бренда
+// (/brands/[slug]), а не только на общий список /brands.
+const BRANDS: { name: string; logo: string; slug?: string }[] = BRAND_PROFILES.map((brand) => ({
+  name: brand.name,
+  logo: brand.logo,
+  slug: brand.slug,
+}));
 
 const CERT_PLACEHOLDERS = [
   { id: 1, label: "Сертификат №1", image: "/sertificat/sert1.png" },
@@ -637,7 +634,7 @@ export default function HomeClient() {
       })),
       ...homeMedia
         .filter((item) => item.type === "BRAND" && item.sortOrder >= BRANDS.length && item.image)
-        .map((item) => ({ name: item.title, logo: item.image as string })),
+        .map((item) => ({ name: item.title, logo: item.image as string, slug: undefined as string | undefined })),
     ],
     [homeMedia]
   );
@@ -967,11 +964,8 @@ export default function HomeClient() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {brands.map((brand, idx) => (
-                <div
-                  key={brand.name}
-                  className="group premium-card flex h-24 items-center justify-center rounded-xl border border-slate-100 bg-white px-4 shadow-sm transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg"
-                >
+              {brands.map((brand, idx) => {
+                const logo = (
                   <Image
                     src={brand.logo}
                     alt={`Логотип ${brand.name}`}
@@ -982,8 +976,19 @@ export default function HomeClient() {
                     }`}
                     style={{ imageRendering: "auto" }}
                   />
-                </div>
-              ))}
+                );
+                const cardClassName =
+                  "group premium-card flex h-24 items-center justify-center rounded-xl border border-slate-100 bg-white px-4 shadow-sm transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg";
+                return brand.slug ? (
+                  <Link key={brand.name} href={`/brands/${brand.slug}`} prefetch={false} className={cardClassName} title={`О бренде ${brand.name}`}>
+                    {logo}
+                  </Link>
+                ) : (
+                  <div key={brand.name} className={cardClassName}>
+                    {logo}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
