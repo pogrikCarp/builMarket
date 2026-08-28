@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import OrderClient from "./OrderClient";
 import { buildMetadata } from "@/lib/seo";
 
@@ -11,5 +12,9 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default function OrderPage() {
-  return <OrderClient />;
+  return (
+    <Suspense fallback={null}>
+      <OrderClient />
+    </Suspense>
+  );
 }

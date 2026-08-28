@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import CartButton from "@/components/cart/CartButton";
 import { useCart } from "@/components/cart/CartProvider";
+
+type PaidOrderInfo = {
+  number: string;
+  status: string;
+  paymentStatus: "PENDING" | "PAID" | "FAILED";
+  paymentAmount: number | null;
+  total: number;
+  createdAt: string;
+  paidAt: string | null;
+};
 
 type DeliveryType = "pickup" | "courier";
 type PaymentType = "cash" | "card" | "invoice";
@@ -59,6 +70,30 @@ export default function OrderClient() {
   const [submittedItems, setSubmittedItems] = useState<typeof items | null>(null);
   const [submittedTotal, setSubmittedTotal] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
+
+  const searchParams = useSearchParams();
+  const paidOrderNumber = searchParams.get("paid");
+  const [paidOrderInfo, setPaidOrderInfo] = useState<PaidOrderInfo | null>(null);
+  const [paidOrderError, setPaidOrderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!paidOrderNumber) return;
+    let cancelled = false;
+    setPaidOrderInfo(null);
+    setPaidOrderError(null);
+    fetch(`/api/orders/${encodeURIComponent(paidOrderNumber)}`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "Не удалось получить статус заказа");
+        if (!cancelled) setPaidOrderInfo(data.order);
+      })
+      .catch((error) => {
+        if (!cancelled) setPaidOrderError(error instanceof Error ? error.message : "Не удалось получить статус заказа");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [paidOrderNumber]);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -141,6 +176,73 @@ export default function OrderClient() {
     );
   };
 
+  if (paidOrderNumber) {
+    return (
+      <div className="min-h-screen bg-stone-50 text-slate-900">
+        <header className="border-b border-slate-100 bg-white">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
+            <Link href="/" className="flex shrink-0 items-center">
+              <Image src="/logo.png" alt="ДомСтрой" width={110} height={52} className="h-10 w-auto object-contain sm:h-12" />
+            </Link>
+            <nav className="flex items-center gap-3 text-sm">
+              <Link href="/" className="text-slate-600 hover:text-slate-900">Главная</Link>
+              <Link href="/catalog" prefetch={false} className="text-slate-600 hover:text-slate-900">Каталог</Link>
+              <Link href="/basket" className="text-slate-600 hover:text-slate-900">Корзина</Link>
+              <CartButton variant="inline" />
+            </nav>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-3xl px-4 py-10">
+          <div className="rounded-[32px] border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
+            {paidOrderError ? (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-red-500">Ошибка</p>
+                <h1 className="mt-4 text-2xl font-semibold text-slate-900">Не удалось проверить статус оплаты</h1>
+                <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">{paidOrderError}</p>
+              </>
+            ) : !paidOrderInfo ? (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Проверяем оплату</p>
+                <h1 className="mt-4 text-2xl font-semibold text-slate-900">Секунду, уточняем статус платежа...</h1>
+              </>
+            ) : paidOrderInfo.paymentStatus === "PAID" ? (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-emerald-600">Оплачено</p>
+                <h1 className="mt-4 text-2xl font-semibold text-slate-900">Спасибо! Оплата заказа №{paidOrderInfo.number} получена</h1>
+                <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
+                  Сумма {formatPrice((paidOrderInfo.paymentAmount ?? paidOrderInfo.total) * 100)} зачислена. Менеджер свяжется с вами для подтверждения доставки.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Ожидаем подтверждение</p>
+                <h1 className="mt-4 text-2xl font-semibold text-slate-900">Заказ №{paidOrderInfo.number} пока не оплачен</h1>
+                <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
+                  Если вы уже перевели деньги, платёж обычно подтверждается в течение нескольких минут - обновите страницу чуть позже.
+                  Если вы отменили оплату, вы можете вернуться к заказу и попробовать снова.
+                </p>
+              </>
+            )}
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link href="/catalog" prefetch={false} className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-600">
+                В каталог
+              </Link>
+              {paidOrderInfo && paidOrderInfo.paymentStatus !== "PAID" && (
+                <a
+                  href={`/api/payments/yoomoney/pay?order=${encodeURIComponent(paidOrderInfo.number)}`}
+                  className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                >
+                  Попробовать оплатить снова
+                </a>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (successOrderId) {
     const readableDate = successCreatedAt?.toLocaleString("ru-RU", {
       dateStyle: "medium",
@@ -194,20 +296,27 @@ export default function OrderClient() {
                 <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900">₽</div>
                   <div>
-                    <p className="font-semibold text-slate-900">Онлайн-оплата будет подключена позже</p>
+                    <p className="font-semibold text-slate-900">Онлайн-оплата через ЮMoney</p>
                     <p className="text-xs text-slate-500">Сумма к оплате: {formatPrice(submittedTotal ?? total)}</p>
                   </div>
                 </div>
                 <p className="mt-4 text-xs leading-6 text-slate-500">
-                  Услугу предоставляет выбранный платёжный провайдер. После подтверждения менеджером вы сможете перейти к оплате и подписать документы.
+                  Можете оплатить сразу онлайн или дождаться подтверждения менеджера и оплатить любым другим удобным способом.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => alert("Онлайн-оплата появится после подключения платёжного провайдера.")}
-                  className="mt-4 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950"
-                >
-                  Оплатить
-                </button>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <a
+                    href={`/api/payments/yoomoney/pay?order=${encodeURIComponent(successOrderId)}&method=AC`}
+                    className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950"
+                  >
+                    Оплатить картой
+                  </a>
+                  <a
+                    href={`/api/payments/yoomoney/pay?order=${encodeURIComponent(successOrderId)}&method=PC`}
+                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                  >
+                    Оплатить из кошелька ЮMoney
+                  </a>
+                </div>
                 <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
                   Обратите внимание: если вы передумаете, обратитесь к менеджеру для отмены и возврата средств.
                 </div>

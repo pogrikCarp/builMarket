@@ -76,6 +76,12 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 model Order {
   id           String      @id @default(cuid())
   userId       String
@@ -94,6 +100,15 @@ model Order {
   inn          String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  // Онлайн-оплата через ЮMoney (см. src/lib/yoomoney.ts). paymentOperationId хранит
+  // operation_id из уведомления ЮMoney - используется для защиты от повторной
+  // обработки одного и того же уведомления (ЮMoney может прислать его до 3 раз).
+  paymentStatus      PaymentStatus @default(PENDING)
+  paymentProvider    String?
+  paymentOperationId String?       @unique
+  paymentAmount      Decimal?      @db.Decimal(12, 2)
+  paidAt             DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
