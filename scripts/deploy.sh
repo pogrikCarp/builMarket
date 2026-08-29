@@ -70,10 +70,15 @@ ensure_env_file() {
   fi
 }
 
-# public/uploads (файлы, загруженные через админку) должны переживать смену
-# релизов - поэтому это не часть релиза, а общий каталог, на который каждый
-# новый релиз получает symlink.
-link_shared_uploads() {
+# .env и public/uploads общие для всех релизов (секреты и загруженные через
+# админку файлы не должны дублироваться и обязаны переживать смену релизов) -
+# поэтому это не часть релиза, а symlink на общее место. Без symlink на .env
+# npm/prisma/next, запущенные из каталога релиза, не находят DATABASE_URL и
+# остальные переменные окружения (Prisma и Next.js сами подхватывают .env
+# только из текущего рабочего каталога).
+link_shared_files() {
+  ln -sfn "$APP_DIR/.env" "$RELEASE_DIR/.env"
+
   rm -rf "$RELEASE_DIR/public/uploads"
   ln -sfn "$APP_DIR/shared/uploads" "$RELEASE_DIR/public/uploads"
 }
@@ -283,7 +288,7 @@ HOOK
 
 build_release() {
   cd "$RELEASE_DIR"
-  link_shared_uploads
+  link_shared_files
 
   log "Установка npm-зависимостей (npm ci) в $RELEASE_DIR"
   npm ci
