@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { SITE_URL } from "@/lib/seo";
 import type { Role } from "@prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -59,6 +60,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = (token.role as Role | undefined) ?? "USER";
       }
       return session;
+    },
+    // baseUrl NextAuth вычисляет из заголовков запроса (Host/X-Forwarded-Host).
+    // Если приложение открыли напрямую по внутреннему адресу за nginx (например,
+    // через SSH-туннель на 127.0.0.1:4000/4001 при отладке blue-green деплоя -
+    // см. scripts/deploy.sh), baseUrl окажется внутренним, и signIn/signOut
+    // уведут пользователя на нерабочий "localhost:4001" вместо сайта. Поэтому
+    // редиректы всегда приводим к публичному домену сайта, а не доверяем baseUrl.
+    async redirect({ url }) {
+      if (url.startsWith("/")) return `${SITE_URL}${url}`;
+      try {
+        if (new URL(url).origin === SITE_URL) return url;
+      } catch {
+        // некорректный url - используем публичный домен ниже
+      }
+      return SITE_URL;
     },
   },
 });
