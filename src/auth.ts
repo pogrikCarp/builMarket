@@ -28,21 +28,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: email.toLowerCase() },
+          });
 
-        if (!user || !user.passwordHash) return null;
+          if (!user || !user.passwordHash) return null;
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+          const valid = await bcrypt.compare(password, user.passwordHash);
+          if (!valid) return null;
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (error) {
+          // Любая ошибка здесь (например, кратковременная недоступность БД при
+          // одновременном входе нескольких пользователей) превращается в тот же
+          // самый "Неверный email или пароль" на клиенте (см.
+          // src/app/login/LoginClient.tsx), и без явного лога понять, что вход
+          // на самом деле не связан с неверными данными, невозможно.
+          console.error("[auth] Ошибка при проверке логина/пароля:", error);
+          return null;
+        }
       },
     }),
   ],
