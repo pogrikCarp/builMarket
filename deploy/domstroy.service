@@ -1,19 +1,19 @@
 [Unit]
-Description=DomStroy Next.js application
+Description=DomStroy Next.js application (__PORT__)
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/domstroy
+WorkingDirectory=__RELEASE_DIR__
 Environment=NODE_ENV=production
-Environment=PORT=4000
+Environment=PORT=__PORT__
 EnvironmentFile=/opt/domstroy/.env
-ExecStart=/usr/bin/npx next start -p 4000
+ExecStart=/usr/bin/npx next start -p __PORT__
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM
-SyslogIdentifier=domstroy
+SyslogIdentifier=domstroy-__PORT__
 
 [Install]
 WantedBy=multi-user.target

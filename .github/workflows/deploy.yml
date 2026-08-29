@@ -53,6 +53,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Каждый деплой получает свой каталог releases/<release_id> на сервере -
+      # это основа blue-green схемы в scripts/deploy.sh: новая версия
+      # собирается и стартует рядом со старой, не затрагивая её, и трафик
+      # переключается на неё только после успешного health-check.
+      - name: Compute release id
+        id: release
+        run: echo "id=$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA:0:10}" >> "$GITHUB_OUTPUT"
+
       - name: Setup SSH key
         run: |
           install -m 700 -d ~/.ssh
@@ -60,12 +68,15 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Ensure remote project directory
+      - name: Ensure remote release directory
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "mkdir -p ${{ env.APP_DIR }} && chown root:root ${{ env.APP_DIR }} && chmod 755 ${{ env.APP_DIR }}"
+            "mkdir -p ${{ env.APP_DIR }}/releases/${{ steps.release.outputs.id }} && chown root:root ${{ env.APP_DIR }} && chmod 755 ${{ env.APP_DIR }}"
 
-      # Синхронизируем только исходники: node_modules/.next/.env на сервере не трогаем
+      # Синхронизируем исходники в отдельный каталог релиза, а не поверх
+      # работающей версии: node_modules/.next/.env там ещё нет - каждый релиз
+      # ставит зависимости и собирается изолированно (см. build_release в
+      # scripts/deploy.sh)
       - name: Sync project to server
         run: |
           rsync -az --delete \
@@ -76,20 +87,27 @@ jobs:
             --exclude "prisma/dev.db" \
             --exclude "public/uploads" \
             -e "ssh -p ${SSH_PORT} -i ~/.ssh/id_ed25519" \
-            ./ "${SSH_USER}@${SSH_HOST}:${APP_DIR}"
+            ./ "${SSH_USER}@${SSH_HOST}:${APP_DIR}/releases/${RELEASE_ID}"
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USER: ${{ secrets.SSH_USER }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
 
-      # Идемпотентный скрипт: ставит зависимости, применяет миграции, собирает,
-      # обновляет systemd unit и перезапускает сервис
+      # Идемпотентный blue-green деплой: собирает новый релиз, поднимает его
+      # на неактивном порту, ждёт /api/health и только потом переключает
+      # nginx. Если новая версия не поднимется - скрипт завершится ошибкой,
+      # а сайт продолжит работать на старой версии без простоя.
       - name: Run deploy script on server
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "bash ${{ env.APP_DIR }}/scripts/deploy.sh"
+            "bash ${{ env.APP_DIR }}/releases/${{ steps.release.outputs.id }}/scripts/deploy.sh ${{ steps.release.outputs.id }}"
 
-      - name: Verify service is active
+      - name: Verify site responds over HTTPS
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "systemctl is-active --quiet domstroy && echo 'domstroy service is active'"
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://marketdomstroy.ru/)
+          echo "HTTP status: $status"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
+            echo "Сайт не отвечает корректно после деплоя (status=$status)" >&2
+            exit 1
+          fi
