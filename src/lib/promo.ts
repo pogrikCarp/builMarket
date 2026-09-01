@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getProductById, type MoyskladAssortmentItem } from "@/lib/moysklad";
+import { getAssortmentByIds, type MoyskladAssortmentItem } from "@/lib/moysklad";
 
 export type ResolvedPromoItem = {
   promoId: string;
@@ -15,6 +15,11 @@ export type ResolvedPromoItem = {
  * карточка акции всегда ведёт на настоящую карточку товара с реальной ценой.
  * Товары, которые перестали существовать в МойСклад (удалены/сняты с продажи),
  * просто пропускаются - без ошибки для остальных.
+ *
+ * Один батч-запрос (getAssortmentByIds) на все товары акции разом - раньше был
+ * отдельный getProductById() на каждый товар, а этот блок показывается на
+ * главной странице (самая посещаемая страница сайта), так что N лишних
+ * запросов к МойСклад на каждый визит ощутимо били и по скорости, и по лимитам.
  */
 export async function getResolvedPromoItems(): Promise<ResolvedPromoItem[]> {
   const promoItems = await prisma.promoItem.findMany({
@@ -24,19 +29,18 @@ export async function getResolvedPromoItems(): Promise<ResolvedPromoItem[]> {
 
   if (promoItems.length === 0) return [];
 
-  const resolved = await Promise.allSettled(
-    promoItems.map(async (promo) => {
-      const item = await getProductById(promo.productId);
-      const oldPrice = promo.oldPrice != null ? Math.round(Number(promo.oldPrice) * 100) : null;
-      const price = item.salePrices?.[0]?.value;
-      const discount =
-        oldPrice && price && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : null;
+  const itemsById = await getAssortmentByIds(promoItems.map((promo) => promo.productId));
 
-      return { promoId: promo.id, oldPrice, discount, item } satisfies ResolvedPromoItem;
-    })
-  );
+  const resolved: ResolvedPromoItem[] = [];
+  for (const promo of promoItems) {
+    const item = itemsById.get(promo.productId);
+    if (!item) continue;
+    const oldPrice = promo.oldPrice != null ? Math.round(Number(promo.oldPrice) * 100) : null;
+    const price = item.salePrices?.[0]?.value;
+    const discount =
+      oldPrice && price && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : null;
+    resolved.push({ promoId: promo.id, oldPrice, discount, item });
+  }
 
-  return resolved
-    .filter((result): result is PromiseFulfilledResult<ResolvedPromoItem> => result.status === "fulfilled")
-    .map((result) => result.value);
+  return resolved;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProductById } from "@/lib/moysklad";
+import { getAssortmentByIds } from "@/lib/moysklad";
 
 // Публичный эндпоинт актуальных остатков для списка товаров - используется
 // страницами корзины и оформления заказа, чтобы показать реальное наличие
@@ -15,16 +15,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ stock: {} });
   }
 
-  const results = await Promise.allSettled(ids.map((id) => getProductById(id)));
-  const stock: Record<string, number> = {};
-
-  results.forEach((result, index) => {
-    if (result.status === "fulfilled") {
-      stock[ids[index]] = result.value.quantity ?? 0;
+  try {
+    const items = await getAssortmentByIds(ids);
+    const stock: Record<string, number> = {};
+    for (const id of ids) {
+      // Товара нет в ответе МойСклад (удалён/снят с продажи) - это не "не
+      // удалось проверить", а реальное "нет в наличии", поэтому явно 0, а не
+      // пропуск записи - иначе корзина посчитала бы такой товар доступным.
+      stock[id] = items.get(id)?.quantity ?? 0;
     }
-    // Товар не найден/МойСклад недоступен - просто не включаем его в ответ,
-    // клиент трактует отсутствие записи как "не удалось проверить" и не блокирует UI.
-  });
-
-  return NextResponse.json({ stock });
+    return NextResponse.json({ stock });
+  } catch {
+    // МойСклад недоступен целиком (сеть, лимиты) - отдаём пустой ответ,
+    // клиент трактует отсутствие записей как "не удалось проверить" и не
+    // блокирует UI (см. src/app/basket/BasketClient.tsx).
+    return NextResponse.json({ stock: {} });
+  }
 }

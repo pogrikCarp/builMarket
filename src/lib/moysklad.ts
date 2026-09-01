@@ -50,16 +50,28 @@ const MAX_CACHE_ENTRIES = 5000;
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlightRequests = new Map<string, Promise<unknown>>();
 
+function readMemoryCache<T>(key: string): T | undefined {
+  const cached = memoryCache.get(key) as CacheEntry<T> | undefined;
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  return undefined;
+}
+
+function writeMemoryCache<T>(key: string, value: T, ttlMs: number) {
+  if (memoryCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = memoryCache.keys().next().value;
+    if (oldestKey !== undefined) memoryCache.delete(oldestKey);
+  }
+  memoryCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
 async function withMemoryCache<T>(
   key: string,
   ttlMs: number,
   fetcher: () => Promise<T>,
   shouldCache: (value: T) => boolean = () => true
 ): Promise<T> {
-  const cached = memoryCache.get(key) as CacheEntry<T> | undefined;
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.value;
-  }
+  const cached = readMemoryCache<T>(key);
+  if (cached !== undefined) return cached;
 
   const inFlight = inFlightRequests.get(key) as Promise<T> | undefined;
   if (inFlight) return inFlight;
@@ -68,11 +80,7 @@ async function withMemoryCache<T>(
     try {
       const value = await fetcher();
       if (shouldCache(value)) {
-        if (memoryCache.size >= MAX_CACHE_ENTRIES) {
-          const oldestKey = memoryCache.keys().next().value;
-          if (oldestKey !== undefined) memoryCache.delete(oldestKey);
-        }
-        memoryCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+        writeMemoryCache(key, value, ttlMs);
       }
       return value;
     } finally {
@@ -329,6 +337,72 @@ export async function getProductById(
 
     throw lastError ?? new Error("Товар не найден");
   });
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Остаток проверяем перед покупкой (корзина, оформление заказа) чаще, чем
+// обычные карточки каталога (MOYSKLAD_REVALIDATE_SECONDS = 60 c) - короткий TTL
+// снижает риск продать то, что уже разобрали, но всё ещё гасит повторные запросы
+// при быстром обновлении страницы корзины/повторной проверке при отправке формы.
+const STOCK_CHECK_REVALIDATE_SECONDS = 20;
+
+/**
+ * Отдаёт актуальный остаток и карточку товара по списку id одним батч-запросом
+ * к entity/assortment (тот же источник, что показывает "В наличии: N" в каталоге).
+ *
+ * ВАЖНО: раньше проверка остатка перед покупкой (корзина, оформление заказа)
+ * делала getProductById() - GET entity/{product|variant|bundle}/{id}. У этого
+ * эндпоинта, в отличие от entity/assortment, поле quantity в ответе ОТСУТСТВУЕТ
+ * (это агрегированный "отчётный" показатель, который МойСклад считает только в
+ * assortment-выборках). Из-за этого `quantity ?? 0` в корзине всегда получал 0,
+ * и товар, реально имеющийся на складе (и показанный "В наличии" в каталоге),
+ * при переходе в корзину помечался как "закончился" - см. историю этого бага.
+ *
+ * Товары, которых не нашлось в ответе (удалены/архивны/сняты с продажи в
+ * МойСклад), просто отсутствуют в возвращённой Map - вызывающий код должен
+ * трактовать это как "нет в наличии" (0), а не как "не удалось проверить".
+ */
+export async function getAssortmentByIds(ids: string[]): Promise<Map<string, MoyskladAssortmentItem>> {
+  const uniqueIds = Array.from(new Set(ids.filter((id) => UUID_RE.test(id)))).slice(0, 100);
+  const result = new Map<string, MoyskladAssortmentItem>();
+  if (uniqueIds.length === 0) return result;
+
+  const missing: string[] = [];
+  for (const id of uniqueIds) {
+    const cached = readMemoryCache<MoyskladAssortmentItem>(`assortment-item:${id}`);
+    if (cached) result.set(id, cached);
+    else missing.push(id);
+  }
+  if (missing.length === 0) return result;
+
+  const params = new URLSearchParams();
+  params.append("limit", String(missing.length));
+  // id= с одинаковым именем параметра, разделённые ";" - это условие "ИЛИ" в
+  // синтаксисе фильтра МойСклад (см. dev.moysklad.ru/doc/api/remap/1.2 -
+  // "Общие сведения. Фильтрация выборки"), а не "И" (как для разных ключей).
+  params.append("filter", missing.map((id) => `id=${id}`).join(";"));
+  const url = buildUrl("/entity/assortment", params);
+
+  const res = await moyskladFetch(url, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`MoySklad API error: ${res.status} ${await res.text()}`);
+  }
+
+  const data: MoyskladAssortmentResponse = await res.json();
+  // Как и в getAssortment/getAssortmentByFolder - список отдаёт только
+  // images.meta.size, без самих ссылок на фото (rows), поэтому дозапрашиваем их.
+  // Это нужно, например, карточкам блока "Акции" на главной, которые используют
+  // тот же item из этой функции для показа превью товара.
+  const enrichedRows = await enrichItemsWithImages(data.rows);
+  for (const row of enrichedRows) {
+    result.set(row.id, row);
+    writeMemoryCache(`assortment-item:${row.id}`, row, STOCK_CHECK_REVALIDATE_SECONDS * 1000);
+  }
+
+  return result;
 }
 
 /**

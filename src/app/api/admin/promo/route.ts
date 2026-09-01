@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getProductById } from "@/lib/moysklad";
+import { getAssortmentByIds, getProductById, type MoyskladAssortmentItem } from "@/lib/moysklad";
 
 async function requireAdmin() {
   const session = await auth();
@@ -18,32 +18,28 @@ export async function GET() {
 
   const promoItems = await prisma.promoItem.findMany({ orderBy: { sortOrder: "asc" } });
 
-  const items = await Promise.allSettled(
-    promoItems.map(async (promo) => {
-      try {
-        const product = await getProductById(promo.productId);
-        return {
-          ...promo,
-          oldPrice: promo.oldPrice != null ? Number(promo.oldPrice) : null,
-          productName: product.name,
-          productPrice: product.salePrices?.[0]?.value ?? null,
-          productMissing: false,
-        };
-      } catch {
-        return {
-          ...promo,
-          oldPrice: promo.oldPrice != null ? Number(promo.oldPrice) : null,
-          productName: null,
-          productPrice: null,
-          productMissing: true,
-        };
-      }
-    })
-  );
+  // Один батч-запрос на все товары акций разом вместо getProductById() на
+  // каждый - раньше это было N отдельных запросов к МойСклад при каждом
+  // открытии страницы "Акции" в админке.
+  let itemsById: Map<string, MoyskladAssortmentItem>;
+  try {
+    itemsById = await getAssortmentByIds(promoItems.map((promo) => promo.productId));
+  } catch {
+    itemsById = new Map();
+  }
 
-  return NextResponse.json({
-    items: items.map((result) => (result.status === "fulfilled" ? result.value : null)).filter(Boolean),
+  const items = promoItems.map((promo) => {
+    const product = itemsById.get(promo.productId);
+    return {
+      ...promo,
+      oldPrice: promo.oldPrice != null ? Number(promo.oldPrice) : null,
+      productName: product?.name ?? null,
+      productPrice: product?.salePrices?.[0]?.value ?? null,
+      productMissing: !product,
+    };
   });
+
+  return NextResponse.json({ items });
 }
 
 export async function POST(request: Request) {

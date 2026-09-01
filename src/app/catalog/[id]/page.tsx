@@ -7,7 +7,14 @@ import ProductGallery from "@/components/ProductGallery";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/JsonLd";
-import { formatAttributeValue, getItemGalleryUrls, getProductById, getProductFolders } from "@/lib/moysklad";
+import {
+  formatAttributeValue,
+  getAssortmentByIds,
+  getItemGalleryUrls,
+  getProductById,
+  getProductFolders,
+  type MoyskladAssortmentItem,
+} from "@/lib/moysklad";
 import { getFolderPath } from "@/lib/folder-tree";
 import { buildBreadcrumbJsonLd, buildMetadata, buildProductJsonLd } from "@/lib/seo";
 
@@ -67,6 +74,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   if (!item || !item.name) {
     notFound();
   }
+
+  // getProductById() (GET entity/{type}/{id}) не возвращает поле quantity - оно
+  // считается только в "отчётных" выборках entity/assortment (тот же источник,
+  // что показывает "В наличии: N" в каталоге). Без этой правки карточка товара
+  // всегда показывала бы "Нет в наличии", даже когда товар реально есть на
+  // складе - см. историю этого бага в /basket.
+  const liveStock = await getAssortmentByIds([id]).catch(() => new Map<string, MoyskladAssortmentItem>());
+  item = { ...item, quantity: liveStock.get(id)?.quantity ?? item.quantity };
 
   const price = item.salePrices?.[0]?.value;
   const images = getItemGalleryUrls(item);

@@ -7,7 +7,7 @@ import JsonLd from "@/components/JsonLd";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import { LOOKBOOKS, getLookbookBySlug, type Lookbook } from "@/lib/lookbooks";
-import { getProductById, getItemGalleryUrls, type MoyskladAssortmentItem } from "@/lib/moysklad";
+import { getAssortmentByIds, getProductById, getItemGalleryUrls, type MoyskladAssortmentItem } from "@/lib/moysklad";
 import { buildBreadcrumbJsonLd, buildMetadata, buildProductJsonLd } from "@/lib/seo";
 
 // Цена и наличие набора могут поменяться в МойСклад в любой момент - раз в час
@@ -55,10 +55,23 @@ export default async function LookbookPage({ params }: { params: Promise<{ slug:
   const lookbook = getLookbookBySlug(slug);
   if (!lookbook) notFound();
 
-  const [product, ...comparisonProducts] = await Promise.all([
+  const [rawProduct, ...rawComparisonProducts] = await Promise.all([
     fetchLookbookProduct(lookbook),
     ...LOOKBOOKS.filter((item) => item.slug !== lookbook.slug).map(fetchLookbookProduct),
   ]);
+
+  // getProductById() не отдаёт поле quantity (это отчётный показатель
+  // entity/assortment, а не обычной карточки товара) - без этой правки страница
+  // набора всегда показывала бы "Нет в наличии", даже когда набор есть на
+  // складе. Один батч-запрос на все наборы сразу, а не по одному на каждый.
+  const liveStock = await getAssortmentByIds(LOOKBOOKS.map((item) => item.moyskladId)).catch(
+    () => new Map<string, MoyskladAssortmentItem>()
+  );
+  const withLiveStock = (item: MoyskladAssortmentItem | null): MoyskladAssortmentItem | null =>
+    item ? { ...item, quantity: liveStock.get(item.id)?.quantity ?? item.quantity } : null;
+
+  const product = withLiveStock(rawProduct);
+  const comparisonProducts = rawComparisonProducts.map(withLiveStock);
 
   const otherLookbooks = LOOKBOOKS.filter((item) => item.slug !== lookbook.slug);
   const comparisonRows = [

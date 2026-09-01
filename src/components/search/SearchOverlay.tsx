@@ -30,9 +30,12 @@ type Props = {
 export default function SearchOverlay({ open, onClose, initialQuery = "" }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
-  const [items, setItems] = useState<MoyskladAssortmentItem[] | null>(null);
+  // null = поиск ещё не выполнялся для текущего запроса, [] = выполнялся, но пусто.
+  const [results, setResults] = useState<MoyskladAssortmentItem[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [folders, setFolders] = useState<MoyskladProductFolder[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (!open) return;
@@ -41,13 +44,40 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
     return () => clearTimeout(timer);
   }, [open, initialQuery]);
 
+  // Раньше при каждом первом открытии поиска подгружался ВЕСЬ каталог
+  // (limit=1000, с фото/атрибутами) и фильтрация шла на клиенте по подстроке -
+  // это тяжёлый ответ (мегабайты JSON) на каждое открытие поиска, что и
+  // делало открытие поиска (и сам каталог заодно, из-за общей очереди запросов
+  // к МойСклад) заметно медленнее. Теперь ищем на сервере (тот же filter=name~,
+  // что и в каталоге) с debounce и лимитом в RESULTS_LIMIT штук - и по сети, и
+  // по нагрузке на МойСклад это несравнимо легче.
   useEffect(() => {
-    if (!open || items !== null) return;
-    fetch("/api/moysklad/assortment?limit=1000")
-      .then((res) => (res.ok ? res.json() : { rows: [] }))
-      .then((data) => setItems(data.rows ?? []))
-      .catch(() => setItems([]));
-  }, [open, items]);
+    const trimmed = query.trim();
+    if (!open || !trimmed) {
+      setResults(null);
+      setSearching(false);
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/moysklad/assortment?limit=${RESULTS_LIMIT}&search=${encodeURIComponent(trimmed)}`)
+        .then((res) => (res.ok ? res.json() : { rows: [] }))
+        .then((data) => {
+          if (requestIdRef.current !== requestId) return; // устаревший ответ - запрос уже перезапущен новым текстом
+          setResults(data.rows ?? []);
+          setSearching(false);
+        })
+        .catch(() => {
+          if (requestIdRef.current !== requestId) return;
+          setResults([]);
+          setSearching(false);
+        });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [open, query]);
 
   useEffect(() => {
     if (!open || folders.length) return;
@@ -76,14 +106,6 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
   }, [open, onClose]);
 
   const rootFolders = useMemo(() => buildFolderTree(folders).roots, [folders]);
-
-  const results = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized || !items) return [];
-    return items
-      .filter((item) => `${item.name} ${item.article ?? ""} ${item.code ?? ""}`.toLowerCase().includes(normalized))
-      .slice(0, RESULTS_LIMIT);
-  }, [items, query]);
 
   const goToFullResults = () => {
     const value = query.trim();
@@ -140,7 +162,7 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
         <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-6">
           {hasQuery ? (
             <>
-              {items === null ? (
+              {searching || results === null ? (
                 <p className="py-10 text-center text-sm text-slate-400">Загрузка...</p>
               ) : results.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

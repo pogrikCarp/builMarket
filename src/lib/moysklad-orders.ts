@@ -1,5 +1,5 @@
 import { moyskladFetch } from "./moysklad-limiter";
-import { buildUrl, getAuthHeaders, getProductById, type MoyskladAssortmentItem } from "./moysklad";
+import { buildUrl, getAuthHeaders, getAssortmentByIds, getProductById, type MoyskladAssortmentItem } from "./moysklad";
 
 // Эта часть отвечает за ЗАПИСЬ в МойСклад (в отличие от moysklad.ts, который
 // только читает каталог): при оформлении заказа на сайте сюда создаётся
@@ -170,44 +170,26 @@ export type StockCheckProblem = { id: string; name: string; available: number; r
 
 /**
  * Проверяет по свежим данным МойСклад, что каждой позиции заказа хватает на
- * складе. Возвращает и загруженные карточки товаров (item), чтобы не делать
- * повторный запрос при создании отгрузки сразу после успешной проверки.
+ * складе. Одним батч-запросом к entity/assortment (getAssortmentByIds) - тем
+ * же источником остатка, что показывает "В наличии: N" в каталоге на сайте.
+ *
+ * Раньше здесь стоял getProductById() (GET entity/{type}/{id}) - у этого
+ * эндпоинта нет поля quantity, поэтому проверка перед покупкой всегда видела
+ * available=0 и блокировала оформление даже реально имеющихся на складе
+ * товаров. Если сам запрос к МойСклад не удался целиком (сеть, лимиты) -
+ * getAssortmentByIds бросает ошибку, и мы честно отказываем в оформлении,
+ * а не пропускаем непроверенный товар.
  */
 export async function checkStockAvailability(
   items: { id: string; name: string; quantity: number }[]
 ): Promise<{ problems: StockCheckProblem[]; itemsById: Map<string, MoyskladAssortmentItem> }> {
   const uniqueIds = Array.from(new Set(items.map((item) => item.id)));
 
-  const results = await Promise.allSettled(uniqueIds.map((id) => getProductById(id)));
-  const itemsById = new Map<string, MoyskladAssortmentItem>();
-  // Товар, которого больше нет в МойСклад (удалён/снят с продажи) - это не
-  // сбой, а просто "нет в наличии" (available=0). Настоящий сбой - когда
-  // МойСклад не смог ответить вообще (сеть, лимиты) - в этом случае честнее
-  // отказать в оформлении, чем пропустить непроверенный товар.
-  const notFoundIds = new Set<string>();
-  const failedIds = new Set<string>();
-
-  results.forEach((result, index) => {
-    const id = uniqueIds[index];
-    if (result.status === "fulfilled") {
-      itemsById.set(id, result.value);
-    } else if (result.reason instanceof Error && result.reason.message === "Товар не найден") {
-      notFoundIds.add(id);
-    } else {
-      failedIds.add(id);
-    }
-  });
-
-  if (failedIds.size > 0) {
-    throw new Error(`Не удалось проверить наличие товара в МойСклад (id: ${Array.from(failedIds).join(", ")})`);
-  }
+  const itemsById = await getAssortmentByIds(uniqueIds);
 
   const problems: StockCheckProblem[] = [];
   for (const item of items) {
-    if (notFoundIds.has(item.id)) {
-      problems.push({ id: item.id, name: item.name, available: 0, requested: item.quantity });
-      continue;
-    }
+    // Товара нет в ответе - удалён/снят с продажи в МойСклад, считаем как 0.
     const liveItem = itemsById.get(item.id);
     const available = liveItem?.quantity ?? 0;
     if (item.quantity > available) {
