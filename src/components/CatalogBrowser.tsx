@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
-import type { MoyskladAssortmentItem, MoyskladProductFolder } from "@/lib/moysklad";
-import { formatAttributeValue, getItemGalleryThumbnailUrls } from "@/lib/moysklad-format";
+import type { MoyskladProductFolder } from "@/lib/moysklad";
+import { getItemGalleryThumbnailUrls, type CatalogListItem } from "@/lib/moysklad-format";
 import { buildFolderTree, getFolderPath } from "@/lib/folder-tree";
 import type { ResolvedPromoItem } from "@/lib/promo";
 import ProductCardMedia from "@/components/catalog/ProductCardMedia";
@@ -19,37 +19,6 @@ function formatPrice(value?: number) {
     maximumFractionDigits: 0,
   });
 }
-
-type FolderInfo = {
-  name?: string;
-  pathName?: string | null;
-  productFolder?: FolderInfo | null;
-};
-
-const splitFolderPath = (value?: string | null) =>
-  (value ?? "")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-const getFolderSegments = (folder?: FolderInfo | null) => {
-  if (!folder?.name) return splitFolderPath(folder?.pathName);
-  return [...splitFolderPath(folder.pathName), folder.name].filter(Boolean);
-};
-
-const getGroupLabel = (folder?: FolderInfo | null) => {
-  if (!folder) return undefined;
-  if (folder.productFolder?.name) return folder.productFolder.name;
-  const segments = getFolderSegments(folder);
-  if (segments.length >= 2) return segments[segments.length - 2];
-  return segments[0];
-};
-
-const getSubgroupLabel = (folder?: FolderInfo | null) => {
-  if (!folder) return undefined;
-  const segments = getFolderSegments(folder);
-  return segments[segments.length - 1];
-};
 
 type CatalogSection = "all" | "promo" | "folder";
 
@@ -64,7 +33,7 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 type Props = {
   folders: MoyskladProductFolder[];
-  initialItems: MoyskladAssortmentItem[];
+  initialItems: CatalogListItem[];
   initialFolderId?: string;
   initialSection?: "all" | "promo";
   initialSearch?: string;
@@ -137,8 +106,8 @@ export default function CatalogBrowser({
   const [activeSection, setActiveSection] = useState<CatalogSection>(
     initialFolder ? "folder" : initialSection
   );
-  const [allItems, setAllItems] = useState<MoyskladAssortmentItem[]>(initialFolder ? [] : initialItems);
-  const [items, setItems] = useState<MoyskladAssortmentItem[]>(initialItems);
+  const [allItems, setAllItems] = useState<CatalogListItem[]>(initialFolder ? [] : initialItems);
+  const [items, setItems] = useState<CatalogListItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -158,7 +127,7 @@ export default function CatalogBrowser({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/moysklad/by-folder?folderHref=${encodeURIComponent(folder.meta.href)}&limit=1000`,
+        `/api/moysklad/by-folder?folderHref=${encodeURIComponent(folder.meta.href)}&limit=1000&slim=1`,
         { signal: controller.signal }
       );
       if (!res.ok) throw new Error("Ошибка загрузки");
@@ -180,7 +149,7 @@ export default function CatalogBrowser({
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/moysklad/assortment?limit=1000`, { signal: controller.signal });
+      const res = await fetch(`/api/moysklad/assortment?limit=1000&slim=1`, { signal: controller.signal });
       if (!res.ok) throw new Error("Ошибка загрузки");
       const data = await res.json();
       const rows = data.rows ?? [];
@@ -272,11 +241,9 @@ export default function CatalogBrowser({
   const availableAttributeFacets = useMemo(() => {
     const facets = new Map<string, Set<string>>();
     for (const item of items) {
-      for (const attribute of item.attributes ?? []) {
-        const value = formatAttributeValue(attribute.value);
-        if (!value) continue;
+      for (const attribute of item.attributes) {
         if (!facets.has(attribute.name)) facets.set(attribute.name, new Set());
-        facets.get(attribute.name)!.add(value);
+        facets.get(attribute.name)!.add(attribute.value);
       }
     }
     return Array.from(facets.entries()).map(([name, values]) => ({
@@ -324,10 +291,7 @@ export default function CatalogBrowser({
 
     const filtered = items.filter((item) => {
       if (query) {
-        const attributeValues = (item.attributes ?? [])
-          .map((attribute) => formatAttributeValue(attribute.value))
-          .filter(Boolean)
-          .join(" ");
+        const attributeValues = item.attributes.map((attribute) => attribute.value).join(" ");
         const haystack = `${item.name} ${item.article ?? ""} ${item.code ?? ""} ${attributeValues}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
@@ -340,10 +304,7 @@ export default function CatalogBrowser({
 
       for (const [attributeName, allowedValues] of Object.entries(attributeFilters)) {
         if (allowedValues.size === 0) continue;
-        const itemValue = item.attributes
-          ?.filter((attribute) => attribute.name === attributeName)
-          .map((attribute) => formatAttributeValue(attribute.value))
-          .find(Boolean);
+        const itemValue = item.attributes.find((attribute) => attribute.name === attributeName)?.value;
         if (!itemValue || !allowedValues.has(itemValue)) return false;
       }
 
@@ -729,13 +690,13 @@ export default function CatalogBrowser({
             <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity duration-200 ${loading ? "opacity-50" : "opacity-100"}`}>
               {visibleItems.map((item) => {
                 const price = item.salePrices?.[0]?.value;
-                const groupLabel = getGroupLabel(item.productFolder);
-                const subgroupLabel = getSubgroupLabel(item.productFolder);
-                const galleryUrls = getItemGalleryThumbnailUrls(item);
+                const groupLabel = item.groupLabel;
+                const subgroupLabel = item.subgroupLabel;
+                const galleryUrls = item.galleryThumbnails;
                 return (
                   <Link
                     key={item.id}
-                    href={`/catalog/${item.id}?type=${item.meta.type}`}
+                    href={`/catalog/${item.id}?type=${item.type}`}
                     // В каталоге одновременно видно/рядом много карточек - без prefetch={false}
                     // Next.js тихо предзагружал бы карточку товара (и, соответственно, запрос
                     // к МойСклад) для каждой из них, что и приводило к перегрузке лимита API.

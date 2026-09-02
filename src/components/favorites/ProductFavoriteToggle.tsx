@@ -1,10 +1,10 @@
 "use client";
 
 import { useFavorites } from "@/components/favorites/FavoriteProvider";
-import type { MoyskladAssortmentItem } from "@/lib/moysklad";
+import type { MinimalCartItem } from "@/lib/moysklad-format";
 
 type Props = {
-  item: MoyskladAssortmentItem;
+  item: MinimalCartItem;
   imageUrl?: string | null;
   size?: "sm" | "md";
   className?: string;

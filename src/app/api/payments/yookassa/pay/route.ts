@@ -48,6 +48,7 @@ export async function GET(request: Request) {
       receiptEmail: order.email,
       receiptPhone: order.phone,
       receiptItems,
+      paymentMethodType: "bank_card",
     });
   } catch (error) {
     console.error("[yookassa] Не удалось создать платёж", error);

@@ -52,6 +52,11 @@ export async function createYookassaPayment(options: {
   receiptEmail?: string | null;
   receiptPhone?: string | null;
   receiptItems?: ReceiptItem[];
+  // На сайте оставлен только один способ оплаты - картой (см. OrderClient.tsx),
+  // поэтому явно передаём payment_method_data.type в ЮKassa: страница
+  // подтверждения сразу открывает форму ввода карты, без своего экрана выбора
+  // способа оплаты (СБП, кошельки и т.д.).
+  paymentMethodType?: "bank_card";
 }): Promise<YookassaPayment> {
   const receipt =
     options.receiptItems?.length && (options.receiptEmail || options.receiptPhone)
@@ -84,6 +89,7 @@ export async function createYookassaPayment(options: {
       confirmation: { type: "redirect", return_url: options.returnUrl },
       description: options.description,
       metadata: { order_id: options.orderNumber },
+      ...(options.paymentMethodType ? { payment_method_data: { type: options.paymentMethodType } } : {}),
       ...(receipt ? { receipt } : {}),
     }),
   });

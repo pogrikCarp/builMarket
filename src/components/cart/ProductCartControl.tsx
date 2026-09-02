@@ -1,10 +1,10 @@
 "use client";
 
 import { useCart } from "@/components/cart/CartProvider";
-import type { MoyskladAssortmentItem } from "@/lib/moysklad";
+import type { MinimalCartItem } from "@/lib/moysklad-format";
 
 type Props = {
-  item: MoyskladAssortmentItem;
+  item: MinimalCartItem;
   size?: "sm" | "md";
 };
 

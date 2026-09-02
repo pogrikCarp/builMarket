@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SiteHeader from "@/components/layout/SiteHeader";
 import { getAssortment, getAssortmentByFolder, getProductFolders } from "@/lib/moysklad";
+import { toCatalogListItem } from "@/lib/moysklad-format";
 import CatalogBrowser from "@/components/CatalogBrowser";
 import JsonLd from "@/components/JsonLd";
 import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
@@ -84,7 +85,12 @@ export default async function CatalogPage({
   const [itemsResult, promoResult] = await Promise.allSettled([itemsPromise, getResolvedPromoItems()]);
 
   const folders = foldersResult.rows;
-  const initialItems = itemsResult.status === "fulfilled" ? itemsResult.value.rows : [];
+  // Полный MoyskladAssortmentItem (с description, всеми размерами картинок,
+  // id/type атрибутов и т.д.) серверу для рендера списка не нужен - только то,
+  // что реально показывает карточка (см. toCatalogListItem). Раньше вся эта
+  // "тяжёлая" структура на все ~170 товаров каталога попадала в HTML/RSC-пейлоад
+  // страницы (около 1.9МБ на голый /catalog) и заметно тормозила первую отрисовку.
+  const initialItems = itemsResult.status === "fulfilled" ? itemsResult.value.rows.map(toCatalogListItem) : [];
   const error = itemsResult.status === "rejected" ? "Ошибка загрузки данных из МойСклад" : null;
   const initialPromoItems = promoResult.status === "fulfilled" ? promoResult.value : [];
 

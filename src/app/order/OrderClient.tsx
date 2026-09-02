@@ -17,7 +17,11 @@ type PaidOrderInfo = {
 };
 
 type DeliveryType = "pickup" | "courier";
-type PaymentType = "cash" | "card" | "invoice";
+// Раньше тут можно было выбрать наличные/карту/счёт - оставлен только один
+// способ оплаты (карта онлайн через ЮKassa сразу после оформления), поэтому
+// выбор способа оплаты убран из формы, а само значение больше не меняется.
+type PaymentType = "card";
+const PAYMENT_TYPE: PaymentType = "card";
 
 type FormState = {
   name: string;
@@ -62,7 +66,6 @@ type StockProblem = { id: string; name: string; available: number; requested: nu
 export default function OrderClient() {
   const { items, itemCount, total, clearCart, setQuantity } = useCart();
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("pickup");
-  const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [stockProblems, setStockProblems] = useState<StockProblem[] | null>(null);
@@ -118,13 +121,18 @@ export default function OrderClient() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  // Оплата только картой - сразу после оформления заказа переходим на
+  // формирование платежа в ЮKassa, без промежуточного клика по кнопке
+  // «Оплатить». Страница заказа остаётся отрисованной как запасной вариант
+  // (с той же кнопкой), если редирект по какой-то причине не сработает
+  // (например, ЮKassa временно недоступна).
+  useEffect(() => {
+    if (!successOrderId) return;
+    window.location.href = `/api/payments/yookassa/pay?order=${encodeURIComponent(successOrderId)}`;
+  }, [successOrderId]);
+
   const deliveryText = deliveryType === "pickup" ? "Самовывоз из магазина" : "Доставка по адресу";
-  const paymentText =
-    paymentType === "cash"
-      ? "Оплата при получении"
-      : paymentType === "card"
-        ? "Банковской картой"
-        : "Счёт для юрлица";
+  const paymentText = "Банковской картой онлайн";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -149,7 +157,7 @@ export default function OrderClient() {
           company: form.company,
           inn: form.inn,
           deliveryType,
-          paymentType,
+          paymentType: PAYMENT_TYPE,
         }),
       });
       const data = await response.json();
@@ -281,9 +289,9 @@ export default function OrderClient() {
         <main className="mx-auto max-w-7xl px-4 py-8 md:py-12">
           <div className="mb-10">
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-600">Заказ сформирован</p>
-            <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl">Спасибо! Мы приняли заявку</h1>
+            <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl">Спасибо! Переходим к оплате картой...</h1>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-500">
-              Номер заказа <span className="font-semibold text-slate-900">№{successOrderId}</span>. Мы свяжемся, как только проверим наличие и подтвердим доставку. Информация о заказе сохранена в базе данных.
+              Номер заказа <span className="font-semibold text-slate-900">№{successOrderId}</span>. Сейчас вы автоматически перейдёте на защищённую страницу оплаты. Если этого не произошло, нажмите кнопку «Оплатить» ниже.
             </p>
             {accountCreated && (
               <p className="mt-3 max-w-3xl rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -309,18 +317,18 @@ export default function OrderClient() {
                 <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900">₽</div>
                   <div>
-                    <p className="font-semibold text-slate-900">Онлайн-оплата через ЮKassa</p>
+                    <p className="font-semibold text-slate-900">Оплата картой через ЮKassa</p>
                     <p className="text-xs text-slate-500">Сумма к оплате: {formatPrice(submittedTotal ?? total)}</p>
                   </div>
                 </div>
                 <p className="mt-4 text-xs leading-6 text-slate-500">
-                  Можете оплатить сразу онлайн (карта, СБП и другие способы на странице ЮKassa) или дождаться подтверждения менеджера и оплатить любым другим удобным способом.
+                  Мы уже перенаправляем вас на защищённую страницу ввода карты. Если переход не начался автоматически, нажмите кнопку ниже.
                 </p>
                 <a
                   href={`/api/payments/yookassa/pay?order=${encodeURIComponent(successOrderId)}`}
                   className="mt-4 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950"
                 >
-                  Оплатить
+                  Оплатить картой
                 </a>
                 <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
                   Обратите внимание: если вы передумаете, обратитесь к менеджеру для отмены и возврата средств.
@@ -566,28 +574,15 @@ export default function OrderClient() {
 
             <section className={cardClass}>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">3. Оплата</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Как вам удобно оплатить</h2>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
-                {[
-                  { id: "cash", title: "Наличными", text: "Оплата при получении заказа." },
-                  { id: "card", title: "Картой", text: "Оплата банковской картой при получении." },
-                  { id: "invoice", title: "Счёт", text: "Выставим счёт для юридического лица." },
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setPaymentType(option.id as PaymentType)}
-                    className={`rounded-[24px] border px-5 py-5 text-left transition ${
-                      paymentType === option.id
-                        ? "border-amber-300 bg-amber-50 shadow-sm"
-                        : "border-slate-200 bg-white hover:border-slate-300"
-                    }`}
-                  >
-                    <p className="text-base font-semibold text-slate-900">{option.title}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">{option.text}</p>
-                  </button>
-                ))}
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Оплата банковской картой онлайн</h2>
+              <div className="mt-6 flex items-center gap-4 rounded-[24px] border border-amber-300 bg-amber-50 px-5 py-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900">₽</div>
+                <div>
+                  <p className="text-base font-semibold text-slate-900">Картой через ЮKassa</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    После подтверждения заказа вы сразу перейдёте на защищённую страницу оплаты картой.
+                  </p>
+                </div>
               </div>
             </section>
 
@@ -616,7 +611,7 @@ export default function OrderClient() {
                 disabled={isSubmitting}
                 className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? "Создаём заказ..." : "Подтвердить оформление"}
+                {isSubmitting ? "Создаём заказ..." : "Оформить и перейти к оплате картой"}
               </button>
             </section>
           </form>

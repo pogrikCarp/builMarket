@@ -7,7 +7,7 @@ function formatMoney(kopecksOrRubles: number, alreadyInRubles = false): string {
 }
 
 const DELIVERY_LABELS: Record<string, string> = { pickup: "Самовывоз", delivery: "Доставка" };
-const PAYMENT_LABELS: Record<string, string> = { cash: "Наличными/картой при получении", card: "Картой при получении", yookassa: "Онлайн-оплата (ЮKassa)" };
+const PAYMENT_LABELS: Record<string, string> = { cash: "Наличными/картой при получении", card: "Картой онлайн (ЮKassa)", yookassa: "Онлайн-оплата (ЮKassa)" };
 
 type StoredOrderItem = { name?: string; price?: number; quantity?: number };
 
