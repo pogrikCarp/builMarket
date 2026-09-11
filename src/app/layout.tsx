@@ -4,6 +4,7 @@ import CookieConsentBanner from "@/components/CookieConsentBanner";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { FavoriteProvider } from "@/components/favorites/FavoriteProvider";
 import JsonLd from "@/components/JsonLd";
+import YandexMetrika from "@/components/YandexMetrika";
 import { SITE_NAME, SITE_URL, buildLocalBusinessJsonLd, buildWebsiteJsonLd } from "@/lib/seo";
 import "./globals.css";
 
@@ -45,6 +46,7 @@ export default function RootLayout({
       className={`${inter.variable} font-[family-name:var(--font-inter)] h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <YandexMetrika />
         <JsonLd data={buildLocalBusinessJsonLd()} />
         <JsonLd data={buildWebsiteJsonLd()} />
         <CartProvider>
