@@ -36,16 +36,26 @@ import {
 const MOYSKLAD_BASE_URL = "https://api.moysklad.ru/api/remap/1.2";
 
 // Готовность зеркала проверяется на каждый запрос страницы, поэтому результат
-// кэшируем: как только товары появились, ответ "готово" уже не меняется.
+// кэшируем: как только зеркало наполнено, ответ "готово" уже не меняется.
 let mirrorReadyCache: { value: boolean; expiresAt: number } | null = null;
 const MIRROR_READY_TTL_MS = 30_000;
 
+/**
+ * Зеркало считается готовым только после первого УСПЕШНО ЗАВЕРШЁННОГО полного
+ * синка, а не просто при наличии товаров в таблице. Иначе во время самой первой
+ * синхронизации (она идёт минутами, потому что качает все фотографии) сайт
+ * показывал бы каталог частично - те позиции, которые синк успел записать.
+ * До этого момента данные берутся напрямую из МойСклад, как было раньше.
+ */
 export async function isCatalogMirrorReady(): Promise<boolean> {
   if (mirrorReadyCache && mirrorReadyCache.expiresAt > Date.now()) return mirrorReadyCache.value;
 
   try {
-    const count = await prisma.catalogProduct.count({ where: { archived: false } });
-    const value = count > 0;
+    const [count, completedFullSync] = await Promise.all([
+      prisma.catalogProduct.count({ where: { archived: false } }),
+      prisma.catalogSyncRun.findFirst({ where: { mode: "full", status: "OK" }, select: { id: true } }),
+    ]);
+    const value = count > 0 && Boolean(completedFullSync);
     mirrorReadyCache = { value, expiresAt: Date.now() + (value ? MIRROR_READY_TTL_MS * 10 : MIRROR_READY_TTL_MS) };
     return value;
   } catch (error) {
@@ -323,13 +333,17 @@ export async function getCatalogItemsByIds(ids: string[]): Promise<Map<string, M
 }
 
 export async function getCatalogProductIds(maxItems = 5000): Promise<string[]> {
-  const rows = await prisma.catalogProduct.findMany({
-    where: { archived: false },
-    select: { id: true },
-    take: maxItems,
-    orderBy: { name: "asc" },
-  });
-  if (rows.length > 0) return rows.map((row) => row.id);
+  // Карта сайта не должна собираться по наполовину наполненному зеркалу -
+  // иначе в sitemap.xml попадёт лишь часть товаров.
+  if (await isCatalogMirrorReady()) {
+    const rows = await prisma.catalogProduct.findMany({
+      where: { archived: false },
+      select: { id: true },
+      take: maxItems,
+      orderBy: { name: "asc" },
+    });
+    return rows.map((row) => row.id);
+  }
 
   if (!isMoyskladConfigured()) return [];
   return getAssortmentIdsForSitemap(maxItems);
