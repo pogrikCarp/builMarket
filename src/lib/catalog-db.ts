@@ -86,7 +86,22 @@ function imageUrls(images: StoredProductImage[]) {
   return { full, thumbs };
 }
 
-function toListItem(row: CatalogProduct): CatalogListItem {
+type CatalogListRow = Pick<
+  CatalogProduct,
+  | "id"
+  | "entityType"
+  | "name"
+  | "article"
+  | "code"
+  | "price"
+  | "quantity"
+  | "groupLabel"
+  | "subgroupLabel"
+  | "images"
+  | "attributes"
+>;
+
+function toListItem(row: CatalogListRow): CatalogListItem {
   const { thumbs } = imageUrls(parseImages(row.images));
   return {
     id: row.id,
@@ -247,9 +262,51 @@ async function buildWhere(query: CatalogQuery) {
   return where;
 }
 
-async function queryMirror(query: CatalogQuery) {
-  const limit = Math.min(Math.max(query.limit ?? 100, 1), 1000);
-  const offset = Math.max(query.offset ?? 0, 0);
+// Поля, из которых собирается карточка списка (CatalogListItem). Важно не
+// выбирать description и searchText: это самые длинные колонки таблицы, а
+// списку каталога они не нужны - на выборке в сотни позиций лишние мегабайты
+// из БД заметно удлиняли рендер страницы /catalog.
+const LIST_SELECT = {
+  id: true,
+  entityType: true,
+  name: true,
+  article: true,
+  code: true,
+  price: true,
+  quantity: true,
+  groupLabel: true,
+  subgroupLabel: true,
+  images: true,
+  attributes: true,
+} as const;
+
+function normalizePaging(query: CatalogQuery) {
+  return {
+    limit: Math.min(Math.max(query.limit ?? 100, 1), 1000),
+    offset: Math.max(query.offset ?? 0, 0),
+  };
+}
+
+async function queryMirrorList(query: CatalogQuery) {
+  const { limit, offset } = normalizePaging(query);
+  const where = await buildWhere(query);
+
+  const [rows, total] = await Promise.all([
+    prisma.catalogProduct.findMany({
+      where,
+      select: LIST_SELECT,
+      orderBy: { name: "asc" },
+      take: limit,
+      skip: offset,
+    }),
+    prisma.catalogProduct.count({ where }),
+  ]);
+
+  return { rows, total, limit, offset };
+}
+
+async function queryMirrorFull(query: CatalogQuery) {
+  const { limit, offset } = normalizePaging(query);
   const where = await buildWhere(query);
 
   const [rows, total] = await Promise.all([
@@ -267,7 +324,7 @@ export async function getCatalogList(
   query: CatalogQuery
 ): Promise<{ rows: CatalogListItem[]; total: number; limit: number; offset: number }> {
   if (await isCatalogMirrorReady()) {
-    const { rows, total, limit, offset } = await queryMirror(query);
+    const { rows, total, limit, offset } = await queryMirrorList(query);
     return { rows: rows.map(toListItem), total, limit, offset };
   }
 
@@ -286,7 +343,7 @@ export async function getCatalogList(
  */
 export async function getCatalogAssortment(query: CatalogQuery): Promise<MoyskladAssortmentResponse> {
   if (await isCatalogMirrorReady()) {
-    const { rows, total, limit, offset } = await queryMirror(query);
+    const { rows, total, limit, offset } = await queryMirrorFull(query);
     return { rows: rows.map(toAssortmentItem), meta: { size: total, limit, offset } };
   }
 
