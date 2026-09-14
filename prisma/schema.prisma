@@ -203,6 +203,95 @@ model PromoItem {
   updatedAt DateTime @updatedAt
 }
 
+// ---------------------------------------------------------------------------
+// Локальное зеркало каталога МойСклад.
+//
+// Раньше каждая страница сайта (каталог, карточка товара, поиск, бренды,
+// наборы, sitemap) спрашивала МойСклад напрямую при КАЖДОМ заходе посетителя.
+// Это и давало медленную загрузку (посетитель ждал ответа чужого API) и риск
+// блокировки JSON API за частые запросы.
+//
+// Теперь МойСклад опрашивает только фоновый синхронизатор (см.
+// src/lib/catalog-sync.ts), складывает товары/категории сюда, а фотографии - на
+// диск сервера. Сайт читает исключительно эти таблицы (src/lib/catalog-db.ts),
+// поэтому число запросов к МойСклад не зависит от числа посетителей.
+// ---------------------------------------------------------------------------
+
+model CatalogFolder {
+  id         String   @id // id папки в МойСклад
+  name       String
+  pathName   String?
+  href       String   @unique // meta.href - по нему строится дерево категорий
+  parentHref String?
+  syncedAt   DateTime @default(now())
+
+  @@index([parentHref])
+}
+
+model CatalogProduct {
+  id          String  @id // id товара в МойСклад
+  entityType  String // product | variant | bundle | service | consumable
+  name        String
+  description String? @db.Text
+  article     String?
+  code        String?
+  // Цена в копейках - как отдаёт МойСклад (salePrices[0].value), чтобы не
+  // терять точность на дробных рублях.
+  price       Int?
+  // null - МойСклад не считает остаток для этого типа позиции (услуги, комплекты).
+  // Именно null, а не 0, чтобы сайт не показывал "нет на складе" там, где раньше
+  // остаток просто не отображался.
+  quantity    Float?
+  uom         String?
+
+  folderId      String?
+  folderName    String?
+  folderPath    String?
+  groupLabel    String?
+  subgroupLabel String?
+
+  // [{ url, thumbUrl, remoteHref, remoteThumbHref }] - url/thumbUrl это уже
+  // локальные пути вида /catalog-images/..., remote* остаются как запасной
+  // вариант через прокси-роут, если файл на диске почему-то не сохранился.
+  images     Json
+  // [{ name, value }] - значения атрибутов уже приведены к строке.
+  attributes Json
+
+  // Поле updated из МойСклад: по нему синхронизатор понимает, что товар
+  // изменился и его картинки/атрибуты нужно перечитать, а не дёргать API зря.
+  msUpdatedAt DateTime?
+  // Товар пропал из выдачи МойСклад (удалён/архивирован) - с сайта убираем,
+  // но запись оставляем, чтобы старые ссылки/заказы не ломались.
+  archived    Boolean   @default(false)
+  // name + артикул + код + атрибуты в нижнем регистре - для быстрого ILIKE-поиска.
+  searchText  String    @db.Text
+  syncedAt    DateTime  @default(now())
+
+  @@index([folderId])
+  @@index([archived])
+  @@index([name])
+}
+
+enum CatalogSyncStatus {
+  RUNNING
+  OK
+  FAILED
+}
+
+model CatalogSyncRun {
+  id         String            @id @default(cuid())
+  mode       String // full | stock | products
+  status     CatalogSyncStatus @default(RUNNING)
+  trigger    String? // cron | admin | order | webhook
+  itemCount  Int               @default(0)
+  imageCount Int               @default(0)
+  error      String?
+  startedAt  DateTime          @default(now())
+  finishedAt DateTime?
+
+  @@index([startedAt])
+}
+
 model StaticPage {
   id              String   @id @default(cuid())
   slug            String   @unique

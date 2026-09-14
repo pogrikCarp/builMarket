@@ -185,7 +185,7 @@ export async function checkStockAvailability(
 ): Promise<{ problems: StockCheckProblem[]; itemsById: Map<string, MoyskladAssortmentItem> }> {
   const uniqueIds = Array.from(new Set(items.map((item) => item.id)));
 
-  const itemsById = await getAssortmentByIds(uniqueIds);
+  const itemsById = await getAssortmentByIds(uniqueIds, { withImages: false });
 
   const problems: StockCheckProblem[] = [];
   for (const item of items) {

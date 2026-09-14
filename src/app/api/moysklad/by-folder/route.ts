@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getAssortmentByFolder } from "@/lib/moysklad";
-import { toCatalogListItem } from "@/lib/moysklad-format";
+import { getCatalogAssortment, getCatalogList } from "@/lib/catalog-db";
 
+// Товары раздела - из локального зеркала каталога (см. src/lib/catalog-db.ts).
+// Раньше каждый клик по категории в каталоге уходил запросом в МойСклад.
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const folderHref = searchParams.get("folderHref");
@@ -15,11 +16,15 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await getAssortmentByFolder(folderHref, limit, offset);
     if (slim) {
-      return NextResponse.json({ ...data, rows: data.rows.map(toCatalogListItem) });
+      const { rows, total, limit: usedLimit, offset: usedOffset } = await getCatalogList({
+        folderHref,
+        limit,
+        offset,
+      });
+      return NextResponse.json({ rows, meta: { size: total, limit: usedLimit, offset: usedOffset } });
     }
-    return NextResponse.json(data);
+    return NextResponse.json(await getCatalogAssortment({ folderHref, limit, offset }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

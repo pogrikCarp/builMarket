@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getAssortmentByIds, getProductById, type MoyskladAssortmentItem } from "@/lib/moysklad";
+import { getCatalogItemsByIds, getCatalogProduct } from "@/lib/catalog-db";
+import type { MoyskladAssortmentItem } from "@/lib/moysklad";
 
 async function requireAdmin() {
   const session = await auth();
@@ -18,12 +19,11 @@ export async function GET() {
 
   const promoItems = await prisma.promoItem.findMany({ orderBy: { sortOrder: "asc" } });
 
-  // Один батч-запрос на все товары акций разом вместо getProductById() на
-  // каждый - раньше это было N отдельных запросов к МойСклад при каждом
-  // открытии страницы "Акции" в админке.
+  // Названия/цены берём из локального зеркала каталога - без обращения к
+  // МойСклад при каждом открытии страницы "Акции" в админке.
   let itemsById: Map<string, MoyskladAssortmentItem>;
   try {
-    itemsById = await getAssortmentByIds(promoItems.map((promo) => promo.productId));
+    itemsById = await getCatalogItemsByIds(promoItems.map((promo) => promo.productId));
   } catch {
     itemsById = new Map();
   }
@@ -53,11 +53,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Не выбран товар" }, { status: 400 });
   }
 
-  // Проверяем, что товар реально существует в МойСклад, прежде чем сохранять привязку.
-  try {
-    await getProductById(productId);
-  } catch {
-    return NextResponse.json({ error: "Товар не найден в МойСклад" }, { status: 400 });
+  // Проверяем, что товар реально есть в каталоге, прежде чем сохранять привязку.
+  const product = await getCatalogProduct(productId);
+  if (!product) {
+    return NextResponse.json({ error: "Товар не найден в каталоге" }, { status: 400 });
   }
 
   const existing = await prisma.promoItem.findUnique({ where: { productId } });

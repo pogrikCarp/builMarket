@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { getAssortmentByIds, type MoyskladAssortmentItem } from "@/lib/moysklad";
+import { getCatalogItemsByIds } from "@/lib/catalog-db";
+import type { MoyskladAssortmentItem } from "@/lib/moysklad";
 
 export type ResolvedPromoItem = {
   promoId: string;
@@ -11,15 +12,14 @@ export type ResolvedPromoItem = {
 /**
  * Отдаёт товары блока "Акции" (главная + /catalog?section=promo): администратор в
  * админ-панели (/admin/promo) выбирает товары МойСклад и задаёт им предыдущую цену,
- * а актуальная цена/фото/наличие каждый раз подгружаются живыми из МойСклад - поэтому
+ * а актуальная цена/фото/наличие берутся из локального зеркала каталога - поэтому
  * карточка акции всегда ведёт на настоящую карточку товара с реальной ценой.
  * Товары, которые перестали существовать в МойСклад (удалены/сняты с продажи),
  * просто пропускаются - без ошибки для остальных.
  *
- * Один батч-запрос (getAssortmentByIds) на все товары акции разом - раньше был
- * отдельный getProductById() на каждый товар, а этот блок показывается на
- * главной странице (самая посещаемая страница сайта), так что N лишних
- * запросов к МойСклад на каждый визит ощутимо били и по скорости, и по лимитам.
+ * Блок показывается на главной - самой посещаемой странице сайта, поэтому он
+ * обязан обходиться без запросов к МойСклад: цена и фото приходят из своей БД
+ * (src/lib/catalog-db.ts), которую обновляет фоновый синхронизатор.
  */
 export async function getResolvedPromoItems(): Promise<ResolvedPromoItem[]> {
   const promoItems = await prisma.promoItem.findMany({
@@ -29,7 +29,7 @@ export async function getResolvedPromoItems(): Promise<ResolvedPromoItem[]> {
 
   if (promoItems.length === 0) return [];
 
-  const itemsById = await getAssortmentByIds(promoItems.map((promo) => promo.productId));
+  const itemsById = await getCatalogItemsByIds(promoItems.map((promo) => promo.productId));
 
   const resolved: ResolvedPromoItem[] = [];
   for (const promo of promoItems) {

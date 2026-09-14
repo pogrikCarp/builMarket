@@ -41,6 +41,10 @@ push_domsite.ps1
 moysklad-test-response.json
 prisma/dev.db
 /public/uploads
+# Фотографии товаров из локального зеркала каталога - их скачивает
+# синхронизатор на сервере (см. src/lib/catalog-images.ts), в репозитории им
+# не место.
+/public/catalog-images
 
 # vercel
 .vercel

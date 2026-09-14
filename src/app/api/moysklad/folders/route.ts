@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getProductFolders } from "@/lib/moysklad";
+import { getCatalogFolders } from "@/lib/catalog-db";
 
+// Категории - из локального зеркала каталога (см. src/lib/catalog-db.ts).
 export async function GET() {
   try {
-    const data = await getProductFolders();
-    return NextResponse.json(data);
+    return NextResponse.json(await getCatalogFolders());
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

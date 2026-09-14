@@ -8,7 +8,8 @@ import JsonLd from "@/components/JsonLd";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductCardMedia from "@/components/catalog/ProductCardMedia";
 import { BRANDS, getBrandBySlug } from "@/lib/brands";
-import { getAssortment, isMoyskladConfigured, type MoyskladAssortmentItem } from "@/lib/moysklad";
+import { getCatalogAssortment } from "@/lib/catalog-db";
+import type { MoyskladAssortmentItem } from "@/lib/moysklad";
 import { getItemGalleryThumbnailUrls } from "@/lib/moysklad-format";
 import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
@@ -43,14 +44,15 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   const brand = getBrandBySlug(slug);
   if (!brand) notFound();
 
-  // Популярные товары подбираем прямо из МойСклад по названию модели бренда
-  // (filter=name~... - см. комментарий в src/lib/moysklad.ts про рабочий способ
-  // поиска). Если МойСклад недоступен или токен не настроен, страница всё равно
-  // отдаёт описание бренда без товарного блока - это не должно ронять SEO-страницу.
+  // Популярные товары подбираем поиском по локальному зеркалу каталога
+  // (src/lib/catalog-db.ts) - ищет и по названию, и по артикулу, и по
+  // характеристикам, без обращения к МойСклад на каждый заход робота или
+  // посетителя. Если зеркало пустое, страница всё равно отдаёт описание бренда
+  // без товарного блока - это не должно ронять SEO-страницу.
   let popularProducts: MoyskladAssortmentItem[] = [];
-  if (brand.inCatalog && isMoyskladConfigured()) {
+  if (brand.inCatalog) {
     try {
-      const result = await getAssortment(8, 0, brand.searchTerm);
+      const result = await getCatalogAssortment({ search: brand.searchTerm, limit: 8 });
       popularProducts = result.rows;
     } catch {
       popularProducts = [];

@@ -6,6 +6,12 @@ import { getAssortmentByIds } from "@/lib/moysklad";
 // прямо перед покупкой (данные каталога на странице могли устареть за то
 // время, что товар лежал в корзине). Отдаёт только id -> количество, никаких
 // приватных данных.
+//
+// ЕДИНСТВЕННОЕ место среди страниц для посетителей, которое намеренно спрашивает
+// МойСклад напрямую, а не локальное зеркало каталога: остаток здесь решает,
+// можно ли продать товар, поэтому он должен быть настоящим на эту секунду.
+// Нагрузки это не создаёт - запрос уходит один на всю корзину и только у тех,
+// кто действительно собрался покупать (а не при просмотре каталога).
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const idsParam = searchParams.get("ids") ?? "";
@@ -16,7 +22,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const items = await getAssortmentByIds(ids);
+    const items = await getAssortmentByIds(ids, { withImages: false });
     const stock: Record<string, number> = {};
     for (const id of ids) {
       // Товара нет в ответе МойСклад (удалён/снят с продажи) - это не "не

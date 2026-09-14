@@ -12,6 +12,10 @@ import type { MoyskladAssortmentItem, MoyskladAttributeValue } from "./moysklad"
  */
 export function getMoyskladImageProxyUrl(href?: string | null): string | null {
   if (!href) return null;
+  // Фотографии из локального зеркала каталога (см. catalog-images.ts) уже лежат
+  // на диске сервера и отдаются nginx как обычная статика - оборачивать их в
+  // прокси-роут не нужно и нельзя (он принимает только ссылки на api.moysklad.ru).
+  if (href.startsWith("/")) return href;
   return `/api/moysklad/image?href=${encodeURIComponent(href)}`;
 }
 

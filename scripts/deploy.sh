@@ -41,7 +41,7 @@ require_root() {
 
 ensure_directory() {
   log "Проверка каталога приложения $APP_DIR"
-  mkdir -p "$APP_DIR" "$APP_DIR/releases" "$APP_DIR/shared/uploads"
+  mkdir -p "$APP_DIR" "$APP_DIR/releases" "$APP_DIR/shared/uploads" "$APP_DIR/shared/catalog-images"
   chown root:root "$APP_DIR"
   chmod 755 "$APP_DIR"
 
@@ -70,17 +70,132 @@ ensure_env_file() {
   fi
 }
 
-# .env и public/uploads общие для всех релизов (секреты и загруженные через
-# админку файлы не должны дублироваться и обязаны переживать смену релизов) -
-# поэтому это не часть релиза, а symlink на общее место. Без symlink на .env
-# npm/prisma/next, запущенные из каталога релиза, не находят DATABASE_URL и
-# остальные переменные окружения (Prisma и Next.js сами подхватывают .env
-# только из текущего рабочего каталога).
+# .env, public/uploads и public/catalog-images общие для всех релизов (секреты,
+# загруженные через админку файлы и скачанные фотографии товаров не должны
+# дублироваться и обязаны переживать смену релизов) - поэтому это не часть
+# релиза, а symlink на общее место. Без symlink на .env npm/prisma/next,
+# запущенные из каталога релиза, не находят DATABASE_URL и остальные переменные
+# окружения (Prisma и Next.js сами подхватывают .env только из текущего
+# рабочего каталога).
 link_shared_files() {
   ln -sfn "$APP_DIR/.env" "$RELEASE_DIR/.env"
 
   rm -rf "$RELEASE_DIR/public/uploads"
   ln -sfn "$APP_DIR/shared/uploads" "$RELEASE_DIR/public/uploads"
+
+  # Фотографии товаров из локального зеркала каталога: без общего каталога
+  # каждый релиз качал бы все фото из МойСклад заново (см. src/lib/catalog-images.ts).
+  rm -rf "$RELEASE_DIR/public/catalog-images"
+  ln -sfn "$APP_DIR/shared/catalog-images" "$RELEASE_DIR/public/catalog-images"
+}
+
+# Секрет, которым systemd-таймеры (и, при желании, вебхук МойСклад)
+# авторизуются в /api/admin/catalog-sync. Генерируется один раз автоматически -
+# от администратора не требуется никаких ручных действий.
+ensure_catalog_sync_secret() {
+  if grep -qE '^CATALOG_SYNC_SECRET=' "$APP_DIR/.env"; then
+    return
+  fi
+
+  local secret
+  secret="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  printf '\nCATALOG_SYNC_SECRET=%s\n' "$secret" >> "$APP_DIR/.env"
+  log "В $APP_DIR/.env добавлен CATALOG_SYNC_SECRET (для таймеров синхронизации каталога)"
+}
+
+# Фоновая синхронизация каталога МойСклад -> локальная БД сайта.
+#
+# Зачем: раньше каталог, карточки товаров, поиск и фотографии запрашивались из
+# МойСклад в момент захода посетителя - страница ждала чужой API, а число
+# запросов росло вместе с трафиком (и приводило к блокировке JSON API). Теперь к
+# МойСклад обращаются только эти таймеры, а сайт читает свою БД.
+#
+# Порт берётся из upstream-конфига nginx, а не хардкодится: при blue-green
+# деплое активный порт меняется между 4000 и 4001.
+install_catalog_sync_jobs() {
+  log "Установка таймеров синхронизации каталога"
+
+  cat > /usr/local/bin/domstroy-catalog-sync <<SCRIPT
+#!/usr/bin/env bash
+# Автогенерируется scripts/deploy.sh - ручные правки будут перезаписаны.
+set -euo pipefail
+
+MODE="\${1:-stock}"
+SECRET="\$(grep -E '^CATALOG_SYNC_SECRET=' "$APP_DIR/.env" | head -n1 | sed -E 's/^CATALOG_SYNC_SECRET=//; s/^"//; s/"\$//')"
+if [ -z "\$SECRET" ]; then
+  echo "CATALOG_SYNC_SECRET не задан в $APP_DIR/.env" >&2
+  exit 1
+fi
+
+PORT="\$(grep -oE '127\.0\.0\.1:[0-9]+' "$UPSTREAM_CONF" 2>/dev/null | head -n1 | cut -d: -f2 || true)"
+PORT="\${PORT:-$PORT_BLUE}"
+
+curl -fsS -m 120 -X POST \\
+  -H "x-catalog-sync-secret: \$SECRET" \\
+  "http://127.0.0.1:\${PORT}/api/admin/catalog-sync?mode=\${MODE}"
+SCRIPT
+  chmod +x /usr/local/bin/domstroy-catalog-sync
+
+  cat > /etc/systemd/system/domstroy-catalog-sync.service <<'UNIT'
+[Unit]
+Description=DomStroy: полная синхронизация каталога из МойСклад (товары, описания, фото)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/domstroy-catalog-sync full
+UNIT
+
+  cat > /etc/systemd/system/domstroy-catalog-sync.timer <<'UNIT'
+[Unit]
+Description=DomStroy: полная синхронизация каталога раз в сутки
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+  cat > /etc/systemd/system/domstroy-catalog-stock.service <<'UNIT'
+[Unit]
+Description=DomStroy: быстрая синхронизация остатков и цен из МойСклад
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/domstroy-catalog-sync stock
+UNIT
+
+  cat > /etc/systemd/system/domstroy-catalog-stock.timer <<'UNIT'
+[Unit]
+Description=DomStroy: остатки и цены каждые 10 минут
+
+[Timer]
+OnCalendar=*:0/10
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+  systemctl daemon-reload
+  systemctl enable --now domstroy-catalog-sync.timer >/dev/null 2>&1 || true
+  systemctl enable --now domstroy-catalog-stock.timer >/dev/null 2>&1 || true
+}
+
+# Сразу после переключения трафика подтягиваем каталог в новый релиз: на самом
+# первом деплое это наполняет локальную БД (до этого момента сайт работает
+# прямым фолбэком в МойСклад - см. src/lib/catalog-db.ts), а на последующих
+# почти ничего не делает, потому что обновляются только изменившиеся товары.
+trigger_catalog_sync_after_deploy() {
+  log "Запуск синхронизации каталога после деплоя"
+  if ! /usr/local/bin/domstroy-catalog-sync full >/dev/null 2>&1; then
+    log "ПРЕДУПРЕЖДЕНИЕ: не удалось запустить синхронизацию каталога - сайт продолжит работать, следующая попытка по таймеру"
+  fi
 }
 
 ensure_dependencies() {
@@ -436,6 +551,7 @@ require_root
 ensure_directory
 migrate_legacy_uploads
 ensure_env_file
+ensure_catalog_sync_secret
 ensure_dependencies
 ensure_postgres
 ensure_mtu_workaround
@@ -443,5 +559,7 @@ ensure_nginx
 ensure_ssl
 deploy_release
 ensure_admin_user
+install_catalog_sync_jobs
+trigger_catalog_sync_after_deploy
 
 log "Деплой завершён успешно"

@@ -2,6 +2,7 @@ import type { Order } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isMoyskladConfigured } from "@/lib/moysklad";
 import { createDemandForOrder, type DemandPositionInput } from "@/lib/moysklad-orders";
+import { refreshCatalogProductsAfterOrder } from "@/lib/catalog-sync";
 
 type StoredOrderItem = { id?: string; name?: string; price?: number; quantity?: number };
 
@@ -50,6 +51,11 @@ export async function syncOrderToMoysklad(order: Order): Promise<void> {
       data: { moyskladSyncStatus: "SYNCED", moyskladDemandId: demand.id, moyskladSyncError: null },
     });
     console.log(`[moysklad] Заказ №${order.number} списан со склада, отгрузка ${demand.id}`);
+
+    // Остаток в МойСклад только что уменьшился - сразу обновляем эти товары в
+    // локальном зеркале каталога, чтобы сайт не показывал "в наличии" то, что
+    // уже разобрали, не дожидаясь планового синка.
+    await refreshCatalogProductsAfterOrder(positions.map((position) => position.productId));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Неизвестная ошибка";
     console.error(`[moysklad] Не удалось списать заказ №${order.number} со склада:`, message);

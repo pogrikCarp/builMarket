@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import SiteHeader from "@/components/layout/SiteHeader";
-import { getAssortment, getAssortmentByFolder, getProductFolders } from "@/lib/moysklad";
-import { toCatalogListItem } from "@/lib/moysklad-format";
+import { getCatalogFolders, getCatalogList } from "@/lib/catalog-db";
 import CatalogBrowser from "@/components/CatalogBrowser";
 import JsonLd from "@/components/JsonLd";
 import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
@@ -41,7 +40,7 @@ export async function generateMetadata({
 
   if (params.folder) {
     try {
-      const folders = await getProductFolders();
+      const folders = await getCatalogFolders();
       const folder = folders.rows.find((item) => item.id === params.folder);
       if (folder) {
         return buildMetadata({
@@ -73,25 +72,24 @@ export default async function CatalogPage({
   const initialFolderId = initialSearch ? undefined : params?.folder;
   const initialSection = initialSearch ? "all" : params?.section === "promo" ? "promo" : "all";
 
-  const foldersResult = await getProductFolders();
+  const foldersResult = await getCatalogFolders();
   const selectedFolder = initialFolderId
     ? foldersResult.rows.find((folder) => folder.id === initialFolderId) ?? null
     : null;
 
-  const itemsPromise = selectedFolder
-    ? getAssortmentByFolder(selectedFolder.meta.href, 1000, 0)
-    : getAssortment(1000, 0);
+  // Товары и категории читаются из локального зеркала каталога (см.
+  // src/lib/catalog-db.ts), поэтому страница открывается со скоростью запроса к
+  // своей же БД и не ждёт ответа МойСклад. Карточки сразу приходят в
+  // "облегчённом" виде (CatalogListItem) - без description, полных объектов
+  // изображений и служебных полей атрибутов, которые списку не нужны и раньше
+  // раздували HTML/RSC-пейлоад страницы примерно до 1.9МБ на ~170 товаров.
+  const itemsPromise = getCatalogList({ folderHref: selectedFolder?.meta.href, limit: 1000 });
 
   const [itemsResult, promoResult] = await Promise.allSettled([itemsPromise, getResolvedPromoItems()]);
 
   const folders = foldersResult.rows;
-  // Полный MoyskladAssortmentItem (с description, всеми размерами картинок,
-  // id/type атрибутов и т.д.) серверу для рендера списка не нужен - только то,
-  // что реально показывает карточка (см. toCatalogListItem). Раньше вся эта
-  // "тяжёлая" структура на все ~170 товаров каталога попадала в HTML/RSC-пейлоад
-  // страницы (около 1.9МБ на голый /catalog) и заметно тормозила первую отрисовку.
-  const initialItems = itemsResult.status === "fulfilled" ? itemsResult.value.rows.map(toCatalogListItem) : [];
-  const error = itemsResult.status === "rejected" ? "Ошибка загрузки данных из МойСклад" : null;
+  const initialItems = itemsResult.status === "fulfilled" ? itemsResult.value.rows : [];
+  const error = itemsResult.status === "rejected" ? "Ошибка загрузки каталога" : null;
   const initialPromoItems = promoResult.status === "fulfilled" ? promoResult.value : [];
 
   const folderPath = selectedFolder ? getFolderPath(selectedFolder, folders) : [];

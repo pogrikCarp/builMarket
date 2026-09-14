@@ -22,6 +22,10 @@ function formatPrice(value?: number) {
 
 type CatalogSection = "all" | "promo" | "folder";
 
+// Сколько карточек отрисовываем за один "шаг" (первый экран и каждая дозагрузка
+// при прокрутке) - см. renderedCount ниже.
+const CARDS_PER_PAGE = 24;
+
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 
 const SORT_LABELS: Record<SortOption, string> = {
@@ -327,6 +331,43 @@ export default function CatalogBrowser({
 
     return sorted;
   }, [items, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, attributeFilters]);
+
+  // Показываем карточки порциями и доливаем их по мере прокрутки.
+  //
+  // Фильтры, счётчики и сортировка работают по ВСЕМУ списку раздела (он уже
+  // загружен), но отрисовывать сразу все позиции нельзя: в каталоге больше
+  // шестисот товаров, и разметка всех карточек разом - это несколько мегабайт
+  // HTML, которые браузер вынужден разобрать до первой отрисовки. Раньше этого
+  // не было видно только потому, что МойСклад при expand молча отдавал не
+  // больше сотни позиций, то есть каталог был обрезан.
+  const [renderedCount, setRenderedCount] = useState(CARDS_PER_PAGE);
+
+  const [previousVisibleItems, setPreviousVisibleItems] = useState(visibleItems);
+  if (visibleItems !== previousVisibleItems) {
+    setPreviousVisibleItems(visibleItems);
+    setRenderedCount(CARDS_PER_PAGE);
+  }
+
+  const renderedItems = useMemo(() => visibleItems.slice(0, renderedCount), [visibleItems, renderedCount]);
+  const hasMoreToRender = renderedCount < visibleItems.length;
+
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || !hasMoreToRender) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setRenderedCount((current) => current + CARDS_PER_PAGE);
+        }
+      },
+      // Догружаем заранее, чтобы прокрутка не упиралась в пустоту.
+      { rootMargin: "600px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreToRender]);
 
   // Рекурсивный список подкатегорий для десктопного сайдбара — раскрыт всегда, поддерживает
   // любую глубину вложенности (в МойСклад встречаются папки на 3 уровня: раздел → категория → подкатегория).
@@ -688,7 +729,7 @@ export default function CatalogBrowser({
             )}
 
             <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity duration-200 ${loading ? "opacity-50" : "opacity-100"}`}>
-              {visibleItems.map((item) => {
+              {renderedItems.map((item) => {
                 const price = item.salePrices?.[0]?.value;
                 const groupLabel = item.groupLabel;
                 const subgroupLabel = item.subgroupLabel;
@@ -746,6 +787,18 @@ export default function CatalogBrowser({
                 );
               })}
             </div>
+
+            {hasMoreToRender && (
+              <div ref={loadMoreRef} className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setRenderedCount((current) => current + CARDS_PER_PAGE)}
+                  className="rounded-full border border-slate-300 px-6 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-amber-300 hover:text-amber-600"
+                >
+                  Показать ещё ({visibleItems.length - renderedCount})
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

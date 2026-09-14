@@ -7,14 +7,14 @@ import JsonLd from "@/components/JsonLd";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import { LOOKBOOKS, getLookbookBySlug, type Lookbook } from "@/lib/lookbooks";
-import { getAssortmentByIds, getProductById, getItemGalleryUrls, type MoyskladAssortmentItem } from "@/lib/moysklad";
+import { getItemGalleryUrls, type MoyskladAssortmentItem } from "@/lib/moysklad";
+import { getCatalogItemsByIds } from "@/lib/catalog-db";
 import { buildBreadcrumbJsonLd, buildMetadata, buildProductJsonLd } from "@/lib/seo";
 
-// Цена и наличие набора могут поменяться в МойСклад в любой момент - раз в час
-// достаточно, чтобы страница оставалась актуальной и при этом не создавала
-// лишнюю нагрузку на API МойСклад (запросы всё равно проходят через общий
-// лимитер и кэш - см. src/lib/moysklad-limiter.ts и src/lib/moysklad.ts).
-export const revalidate = 3600;
+// Цена и наличие набора читаются из локального зеркала каталога, поэтому
+// перегенерация страницы ничего не стоит по части лимитов МойСклад - держим
+// короткий интервал, чтобы цена и остаток на странице набора были свежими.
+export const revalidate = 300;
 
 function formatPrice(value?: number) {
   if (!value) return null;
@@ -23,14 +23,6 @@ function formatPrice(value?: number) {
     currency: "RUB",
     maximumFractionDigits: 0,
   });
-}
-
-async function fetchLookbookProduct(lookbook: Lookbook): Promise<MoyskladAssortmentItem | null> {
-  try {
-    return await getProductById(lookbook.moyskladId, lookbook.moyskladType);
-  } catch {
-    return null;
-  }
 }
 
 export function generateStaticParams() {
@@ -55,25 +47,15 @@ export default async function LookbookPage({ params }: { params: Promise<{ slug:
   const lookbook = getLookbookBySlug(slug);
   if (!lookbook) notFound();
 
-  const [rawProduct, ...rawComparisonProducts] = await Promise.all([
-    fetchLookbookProduct(lookbook),
-    ...LOOKBOOKS.filter((item) => item.slug !== lookbook.slug).map(fetchLookbookProduct),
-  ]);
-
-  // getProductById() не отдаёт поле quantity (это отчётный показатель
-  // entity/assortment, а не обычной карточки товара) - без этой правки страница
-  // набора всегда показывала бы "Нет в наличии", даже когда набор есть на
-  // складе. Один батч-запрос на все наборы сразу, а не по одному на каждый.
-  const liveStock = await getAssortmentByIds(LOOKBOOKS.map((item) => item.moyskladId)).catch(
+  // Сам набор и все наборы для таблицы сравнения - одним запросом к локальному
+  // зеркалу каталога (вместе с ценой, остатком, фото и характеристиками).
+  const itemsById = await getCatalogItemsByIds(LOOKBOOKS.map((item) => item.moyskladId)).catch(
     () => new Map<string, MoyskladAssortmentItem>()
   );
-  const withLiveStock = (item: MoyskladAssortmentItem | null): MoyskladAssortmentItem | null =>
-    item ? { ...item, quantity: liveStock.get(item.id)?.quantity ?? item.quantity } : null;
-
-  const product = withLiveStock(rawProduct);
-  const comparisonProducts = rawComparisonProducts.map(withLiveStock);
 
   const otherLookbooks = LOOKBOOKS.filter((item) => item.slug !== lookbook.slug);
+  const product = itemsById.get(lookbook.moyskladId) ?? null;
+  const comparisonProducts = otherLookbooks.map((item) => itemsById.get(item.moyskladId) ?? null);
   const comparisonRows = [
     { lookbook, product },
     ...otherLookbooks.map((item, index) => ({ lookbook: item, product: comparisonProducts[index] })),

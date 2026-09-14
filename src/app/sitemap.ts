@@ -1,11 +1,13 @@
 import type { MetadataRoute } from "next";
-import { getAssortmentIdsForSitemap, getProductFolders } from "@/lib/moysklad";
+import { getCatalogFolders, getCatalogProductIds } from "@/lib/catalog-db";
 import { LOOKBOOKS } from "@/lib/lookbooks";
 import { BRANDS } from "@/lib/brands";
 import { SITE_URL } from "@/lib/seo";
 
-// Карта сайта - отдельный роут со своим кэшем; обновляется раз в час, поэтому
-// повторные запросы к МойСклад (для категорий и id товаров) не бьют по лимиту API.
+// Карта сайта строится из локального зеркала каталога (src/lib/catalog-db.ts),
+// поэтому её генерация больше не зависит от доступности МойСклад. Кэш на час
+// оставляем: sitemap.xml не обязан обновляться поминутно, а роботы поисковиков
+// запрашивают его регулярно.
 export const revalidate = 3600;
 
 type ChangeFrequency = MetadataRoute.Sitemap[number]["changeFrequency"];
@@ -63,10 +65,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   );
 
-  // МойСклад может быть временно недоступен - в этом случае отдаём карту сайта
-  // хотя бы со статическими страницами, не роняя всю генерацию sitemap.xml.
+  // Зеркало каталога может быть ещё пустым (самый первый деплой) - в этом случае
+  // отдаём карту сайта хотя бы со статическими страницами, не роняя всю генерацию.
   try {
-    const folders = await getProductFolders();
+    const folders = await getCatalogFolders();
     entries.push(
       ...folders.rows.map((folder) => ({
         url: `${SITE_URL}/catalog?folder=${folder.id}`,
@@ -80,7 +82,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const ids = await getAssortmentIdsForSitemap();
+    const ids = await getCatalogProductIds();
     entries.push(
       ...ids.map((id) => ({
         url: `${SITE_URL}/catalog/${id}`,

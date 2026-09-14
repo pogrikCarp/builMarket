@@ -151,6 +151,10 @@ export type MoyskladAssortmentItem = {
   code?: string;
   article?: string;
   description?: string;
+  // Момент последнего изменения товара в МойСклад ("2026-09-14 16:28:42.123").
+  // По нему синхронизатор каталога понимает, нужно ли перечитывать фотографии
+  // и атрибуты товара - см. needsImageRefresh в catalog-sync.ts.
+  updated?: string;
   salePrices?: {
     value: number;
     currency: { name: string };
@@ -362,7 +366,13 @@ const STOCK_CHECK_REVALIDATE_SECONDS = 20;
  * МойСклад), просто отсутствуют в возвращённой Map - вызывающий код должен
  * трактовать это как "нет в наличии" (0), а не как "не удалось проверить".
  */
-export async function getAssortmentByIds(ids: string[]): Promise<Map<string, MoyskladAssortmentItem>> {
+export async function getAssortmentByIds(
+  ids: string[],
+  options: { withImages?: boolean } = {}
+): Promise<Map<string, MoyskladAssortmentItem>> {
+  // Проверке остатка перед покупкой фотографии не нужны, а их догрузка - это
+  // отдельный запрос к МойСклад на каждый товар корзины.
+  const withImages = options.withImages ?? true;
   const uniqueIds = Array.from(new Set(ids.filter((id) => UUID_RE.test(id)))).slice(0, 100);
   const result = new Map<string, MoyskladAssortmentItem>();
   if (uniqueIds.length === 0) return result;
@@ -393,10 +403,9 @@ export async function getAssortmentByIds(ids: string[]): Promise<Map<string, Moy
 
   const data: MoyskladAssortmentResponse = await res.json();
   // Как и в getAssortment/getAssortmentByFolder - список отдаёт только
-  // images.meta.size, без самих ссылок на фото (rows), поэтому дозапрашиваем их.
-  // Это нужно, например, карточкам блока "Акции" на главной, которые используют
-  // тот же item из этой функции для показа превью товара.
-  const enrichedRows = await enrichItemsWithImages(data.rows);
+  // images.meta.size, без самих ссылок на фото (rows), поэтому при необходимости
+  // дозапрашиваем их (нужно там, где по этим же товарам показываются превью).
+  const enrichedRows = withImages ? await enrichItemsWithImages(data.rows) : data.rows;
   for (const row of enrichedRows) {
     result.set(row.id, row);
     writeMemoryCache(`assortment-item:${row.id}`, row, STOCK_CHECK_REVALIDATE_SECONDS * 1000);

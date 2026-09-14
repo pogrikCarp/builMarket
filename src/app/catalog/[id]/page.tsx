@@ -7,14 +7,8 @@ import ProductGallery from "@/components/ProductGallery";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/JsonLd";
-import {
-  formatAttributeValue,
-  getAssortmentByIds,
-  getItemGalleryUrls,
-  getProductById,
-  getProductFolders,
-  type MoyskladAssortmentItem,
-} from "@/lib/moysklad";
+import { formatAttributeValue, getItemGalleryUrls } from "@/lib/moysklad";
+import { getCatalogFolders, getCatalogProduct } from "@/lib/catalog-db";
 import { getFolderPath } from "@/lib/folder-tree";
 import { buildBreadcrumbJsonLd, buildMetadata, buildProductJsonLd } from "@/lib/seo";
 
@@ -37,7 +31,7 @@ export async function generateMetadata({ params, searchParams }: ProductPageProp
   const { type } = (await searchParams) ?? {};
 
   try {
-    const item = await getProductById(id, type);
+    const item = await getCatalogProduct(id, type);
     if (!item?.name) throw new Error("Товар не найден");
 
     const images = getItemGalleryUrls(item);
@@ -64,24 +58,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const { id } = await params;
   const { type } = (await searchParams) ?? {};
 
-  let item;
-  try {
-    item = await getProductById(id, type);
-  } catch {
-    notFound();
-  }
+  // Карточка читается из локального зеркала каталога (src/lib/catalog-db.ts):
+  // и сама карточка, и остаток. Остаток в зеркале обновляет фоновый синк раз в
+  // 10 минут, а перед покупкой он всё равно перепроверяется живым запросом в
+  // МойСклад (корзина и оформление заказа) - так что продать отсутствующий
+  // товар это не даёт, зато просмотр карточки больше не стоит запроса к API.
+  const item = await getCatalogProduct(id, type);
 
   if (!item || !item.name) {
     notFound();
   }
-
-  // getProductById() (GET entity/{type}/{id}) не возвращает поле quantity - оно
-  // считается только в "отчётных" выборках entity/assortment (тот же источник,
-  // что показывает "В наличии: N" в каталоге). Без этой правки карточка товара
-  // всегда показывала бы "Нет в наличии", даже когда товар реально есть на
-  // складе - см. историю этого бага в /basket.
-  const liveStock = await getAssortmentByIds([id]).catch(() => new Map<string, MoyskladAssortmentItem>());
-  item = { ...item, quantity: liveStock.get(id)?.quantity ?? item.quantity };
 
   const price = item.salePrices?.[0]?.value;
   const images = getItemGalleryUrls(item);
@@ -95,7 +81,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ID папки берём из поля id, а не из meta.href — при глубоком expand (productFolder.productFolder)
   // МойСклад иногда дописывает в href родителя "?expand=productFolder", из-за чего разбор
   // ссылки на "/" даёт мусор вместо чистого id и цепочка ломается.
-  const foldersResult = await getProductFolders().catch(() => ({ rows: [] }));
+  const foldersResult = await getCatalogFolders().catch(() => ({ rows: [] }));
   const immediateFolderId = item.productFolder?.id;
   const immediateFolder = immediateFolderId
     ? foldersResult.rows.find((folder) => folder.id === immediateFolderId)
