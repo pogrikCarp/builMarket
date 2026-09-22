@@ -6,7 +6,7 @@ import SiteFooter from "@/components/SiteFooter";
 import JsonLd from "@/components/JsonLd";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
-import { LOOKBOOKS, getLookbookBySlug, type Lookbook } from "@/lib/lookbooks";
+import { LOOKBOOKS, getLookbookBySlug } from "@/lib/lookbooks";
 import { getItemGalleryUrls, type MoyskladAssortmentItem } from "@/lib/moysklad";
 import { getCatalogItemsByIds } from "@/lib/catalog-db";
 import { buildBreadcrumbJsonLd, buildMetadata, buildProductJsonLd } from "@/lib/seo";

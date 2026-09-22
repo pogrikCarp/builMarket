@@ -26,7 +26,14 @@ export const CATALOG_IMAGES_URL_PREFIX = "/catalog-images";
 // Каталог является runtime-хранилищем (на сервере это shared-симлинк), а не
 // входом сборщика. Без turbopackIgnore Next.js пытался трассировать десятки
 // тысяч фотографий в NFT-манифест каждого API-роута и замедлял сборку/деплой.
-const CATALOG_IMAGES_DIR = path.resolve("public", "catalog-images");
+function catalogImagesDirectory(...segments: string[]) {
+  return path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    "public",
+    "catalog-images",
+    ...segments
+  );
+}
 
 // Страховка от неожиданно огромного исходника в МойСклад: карточке товара такой
 // файл всё равно не нужен, а диск сервера не бесконечный (45 ГБ на текущем VPS).
@@ -63,8 +70,8 @@ function resolveTargetPath(hash: string, extension: string) {
   const fileName = `${hash}.${extension}`;
   return {
     relativeUrl: `${CATALOG_IMAGES_URL_PREFIX}/${shard}/${fileName}`,
-    directory: path.join(/* turbopackIgnore: true */ CATALOG_IMAGES_DIR, shard),
-    absolutePath: path.join(/* turbopackIgnore: true */ CATALOG_IMAGES_DIR, shard, fileName),
+    directory: catalogImagesDirectory(shard),
+    absolutePath: catalogImagesDirectory(shard, fileName),
   };
 }
 
@@ -178,13 +185,13 @@ export async function cleanupOrphanImages(referencedUrls: Set<string>): Promise<
   let removed = 0;
   let shards: string[];
   try {
-    shards = await readdir(CATALOG_IMAGES_DIR);
+    shards = await readdir(catalogImagesDirectory());
   } catch {
     return 0;
   }
 
   for (const shard of shards) {
-    const shardPath = path.join(/* turbopackIgnore: true */ CATALOG_IMAGES_DIR, shard);
+    const shardPath = catalogImagesDirectory(shard);
     let files: string[];
     try {
       files = await readdir(shardPath);

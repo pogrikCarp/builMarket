@@ -23,15 +23,13 @@ function formatPrice(value?: number) {
 
 type ProductPageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ type?: string }>;
 };
 
-export async function generateMetadata({ params, searchParams }: ProductPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params;
-  const { type } = (await searchParams) ?? {};
 
   try {
-    const item = await getCatalogProduct(id, type);
+    const item = await getCatalogProduct(id);
     if (!item?.name) throw new Error("Товар не найден");
 
     const images = getItemGalleryUrls(item);
@@ -54,16 +52,15 @@ export async function generateMetadata({ params, searchParams }: ProductPageProp
   }
 }
 
-export default async function ProductPage({ params, searchParams }: ProductPageProps) {
+export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
-  const { type } = (await searchParams) ?? {};
 
   // Карточка читается из локального зеркала каталога (src/lib/catalog-db.ts):
   // и сама карточка, и остаток. Остаток в зеркале обновляет фоновый синк раз в
   // 10 минут, а перед покупкой он всё равно перепроверяется живым запросом в
-  // МойСклад (корзина и оформление заказа) - так что продать отсутствующий
+  // МойСклад при финальном оформлении заказа - так что продать отсутствующий
   // товар это не даёт, зато просмотр карточки больше не стоит запроса к API.
-  const item = await getCatalogProduct(id, type);
+  const item = await getCatalogProduct(id);
 
   if (!item || !item.name) {
     notFound();

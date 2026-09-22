@@ -39,9 +39,12 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
 
   useEffect(() => {
     if (!open) return;
-    setQuery(initialQuery);
-    const timer = setTimeout(() => inputRef.current?.focus(), 30);
-    return () => clearTimeout(timer);
+    const stateTimer = setTimeout(() => setQuery(initialQuery), 0);
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => {
+      clearTimeout(stateTimer);
+      clearTimeout(focusTimer);
+    };
   }, [open, initialQuery]);
 
   // Раньше при каждом первом открытии поиска подгружался ВЕСЬ каталог
@@ -52,15 +55,17 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
   // что и в каталоге) с debounce и лимитом в RESULTS_LIMIT штук - и по сети, и
   // по нагрузке на МойСклад это несравнимо легче.
   useEffect(() => {
+    const requestId = ++requestIdRef.current;
     const trimmed = query.trim();
     if (!open || !trimmed) {
-      setResults(null);
-      setSearching(false);
-      return;
+      const resetTimer = setTimeout(() => {
+        setResults(null);
+        setSearching(false);
+      }, 0);
+      return () => clearTimeout(resetTimer);
     }
 
-    const requestId = ++requestIdRef.current;
-    setSearching(true);
+    const stateTimer = setTimeout(() => setSearching(true), 0);
     const timer = setTimeout(() => {
       fetch(`/api/moysklad/assortment?limit=${RESULTS_LIMIT}&search=${encodeURIComponent(trimmed)}`)
         .then((res) => (res.ok ? res.json() : { rows: [] }))
@@ -76,7 +81,10 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
         });
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(stateTimer);
+      clearTimeout(timer);
+    };
   }, [open, query]);
 
   useEffect(() => {

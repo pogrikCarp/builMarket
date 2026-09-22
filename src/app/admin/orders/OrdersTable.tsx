@@ -57,7 +57,8 @@ export function OrdersTable() {
   };
 
   useEffect(() => {
-    load();
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const changeStatus = async (id: string, status: string) => {
@@ -81,6 +82,8 @@ export function OrdersTable() {
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Заказы</h1>
+        {/* Нативная ссылка нужна для скачивания CSV-ответа API, это не клиентская навигация Next.js. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/api/admin/orders/export"
           className="rounded-full bg-slate-950 px-5 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-500 hover:text-white"

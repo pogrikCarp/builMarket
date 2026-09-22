@@ -9,7 +9,8 @@ export default function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    setVisible(localStorage.getItem(CONSENT_KEY) !== "accepted");
+    const timer = setTimeout(() => setVisible(localStorage.getItem(CONSENT_KEY) !== "accepted"), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const acceptCookies = () => {

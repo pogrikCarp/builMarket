@@ -86,8 +86,6 @@ export default function OrderClient() {
     let cancelled = false;
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    setPaidOrderInfo(null);
-    setPaidOrderError(null);
 
     // Каждый запрос статуса на сервере активно перепроверяет платёж напрямую
     // в ЮKassa (см. src/lib/order-payment.ts), поэтому короткий опрос здесь
@@ -109,7 +107,11 @@ export default function OrderClient() {
           if (!cancelled) setPaidOrderError(error instanceof Error ? error.message : "Не удалось получить статус заказа");
         });
     };
-    poll();
+    timer = setTimeout(() => {
+      setPaidOrderInfo(null);
+      setPaidOrderError(null);
+      poll();
+    }, 0);
 
     return () => {
       cancelled = true;

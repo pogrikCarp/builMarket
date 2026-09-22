@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- В админке показываются превью загруженных файлов без оптимизации публичной витрины. */
 
 import { useEffect, useMemo, useState } from "react";
 

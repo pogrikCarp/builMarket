@@ -38,19 +38,8 @@ const CONTACTS = {
   email: { label: "info@marketdomstroy.ru", href: "mailto:info@marketdomstroy.ru" },
 };
 
-const SOCIAL_LINKS: LinkItem[] = [
-  { label: "ВКонтакте", href: "https://vk.ru/domstroy_market" },
-  { label: "Telegram", href: "https://t.me/domstroy_market" },
-];
-
 const QUICK_LINKS: LinkItem[] = [
   { label: "Акция дня", href: "/promo" },
-];
-
-const HEADER_ACTIONS = [
-  { label: "Войти", sub: "личный кабинет" },
-  { label: "Избранное", sub: "0 товаров" },
-  { label: "Корзина", sub: "0 ₽" },
 ];
 
 const SETS = LOOKBOOKS.map((lookbook) => ({
@@ -144,7 +133,9 @@ type FolderGroup = {
   children: MsFolder[];
 };
 
-const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+// Экспорт сохранён для возможного повторного подключения полноэкранного меню.
+// Основная навигация сейчас использует SiteHeader.
+export const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const [folders, setFolders] = useState<MsFolder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
@@ -166,25 +157,28 @@ const CatalogMegaMenu = ({ open, onClose }: { open: boolean; onClose: () => void
     [roots, childrenByParent]
   );
 
-  const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupId) ?? null, [groups, activeGroupId]);
-
-  useEffect(() => {
-    if (!groups.length) return;
-    if (!activeGroupId || !groups.some((group) => group.id === activeGroupId)) {
-      setActiveGroupId(groups[0].id);
-    }
-  }, [groups, activeGroupId]);
+  const activeGroup = useMemo(
+    () => groups.find((group) => group.id === activeGroupId) ?? groups[0] ?? null,
+    [groups, activeGroupId]
+  );
 
   useEffect(() => {
     if (!open) return;
-    setLoadingFolders(true);
-    fetch("/api/moysklad/folders")
-      .then((r) => r.json())
-      .then((foldersData) => {
-        setFolders(foldersData.rows ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingFolders(false));
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setLoadingFolders(true);
+      fetch("/api/moysklad/folders", { signal: controller.signal })
+        .then((r) => r.json())
+        .then((foldersData) => {
+          setFolders(foldersData.rows ?? []);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingFolders(false));
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [open]);
 
   useEffect(() => {

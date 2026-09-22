@@ -34,7 +34,8 @@ export function PagesManager() {
   };
 
   useEffect(() => {
-    load();
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const startEdit = (p: StaticPage) => {

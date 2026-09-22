@@ -1,5 +1,5 @@
 import { moyskladFetch } from "./moysklad-limiter";
-import { buildUrl, getAuthHeaders, getAssortmentByIds, getProductById, type MoyskladAssortmentItem } from "./moysklad";
+import { buildUrl, getAuthHeaders, getAssortmentByIds, type MoyskladAssortmentItem } from "./moysklad";
 
 // Эта часть отвечает за ЗАПИСЬ в МойСклад (в отличие от moysklad.ts, который
 // только читает каталог): при оформлении заказа на сайте сюда создаётся
@@ -100,9 +100,12 @@ async function findOrCreateCounterparty(options: {
 
 export type DemandPositionInput = {
   productId: string;
+  entityType: string;
   quantity: number;
   priceKopecks: number;
 };
+
+const ALLOWED_ASSORTMENT_ENTITY_TYPES = new Set(["product", "variant", "bundle", "service", "consumable"]);
 
 /**
  * Создаёт документ "Отгрузка" в МойСклад и сразу проводит его (applicable:
@@ -132,16 +135,21 @@ export async function createDemandForOrder(options: {
     findOrCreateCounterparty({ name: options.customerName, phone: options.phone, email: options.email }),
   ]);
 
-  const positions = await Promise.all(
-    options.positions.map(async (position) => {
-      const item: MoyskladAssortmentItem = await getProductById(position.productId);
-      return {
-        quantity: position.quantity,
-        price: position.priceKopecks,
-        assortment: { meta: item.meta },
-      };
-    })
-  );
+  const positions = options.positions.map((position) => {
+    if (!ALLOWED_ASSORTMENT_ENTITY_TYPES.has(position.entityType)) {
+      throw new Error(`Неподдерживаемый тип товара МойСклад: ${position.entityType}`);
+    }
+    return {
+      quantity: position.quantity,
+      price: position.priceKopecks,
+      assortment: {
+        meta: {
+          href: buildUrl(`/entity/${position.entityType}/${position.productId}`),
+          type: position.entityType,
+        },
+      },
+    };
+  });
 
   const res = await moyskladFetch(buildUrl("/entity/demand"), {
     method: "POST",

@@ -5,16 +5,6 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = join(__dirname, "..", "folders-export.csv");
 
-async function fetchAll(url, rows = []) {
-  const res = await fetch(url);
-  const data = await res.json();
-  rows.push(...(data.rows ?? []));
-  if (data.meta?.nextHref) {
-    await fetchAll(data.meta.nextHref, rows);
-  }
-  return rows;
-}
-
 // Читаем токен из .env.local
 import { readFileSync, existsSync } from "fs";
 function getToken() {
@@ -30,20 +20,6 @@ function getToken() {
 const TOKEN = getToken();
 const BASE = "https://api.moysklad.ru/api/remap/1.2";
 const HEADERS = { Authorization: `Bearer ${TOKEN}`, "Accept-Encoding": "gzip" };
-
-async function apiFetch(path, params = {}) {
-  const url = new URL(BASE + path);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), { headers: HEADERS });
-  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  const rows = data.rows ?? [];
-  if (data.meta?.nextHref) {
-    const next = await apiFetch("", {});
-    // paginate manually
-  }
-  return { rows, meta: data.meta };
-}
 
 async function fetchAllPages(path, params = {}) {
   const rows = [];

@@ -1,4 +1,5 @@
 import Script from "next/script";
+/* eslint-disable @next/next/no-img-element -- Noscript-пиксель Метрики должен оставаться обычным img по документации Яндекса. */
 
 export const YANDEX_METRIKA_ID = 110510591;
 

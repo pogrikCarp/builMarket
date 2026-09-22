@@ -24,19 +24,14 @@ export function normalizeMoyskladHref(href?: string | null): string {
   return href.slice(0, cutAt).replace(/\/+$/, "");
 }
 
-/**
- * МойСклад отдаёт байты изображения только с авторизацией по токену, поэтому
- * прямая ссылка на api.moysklad.ru не подходит для <img>/<Image> в браузере.
- * Возвращаем адрес нашего собственного прокси-роута, который сервер запросит
- * от имени приложения и отдаст клиенту уже как обычную картинку.
- */
+/** Возвращает только локальные изображения из зеркала каталога. */
 export function getMoyskladImageProxyUrl(href?: string | null): string | null {
   if (!href) return null;
-  // Фотографии из локального зеркала каталога (см. catalog-images.ts) уже лежат
-  // на диске сервера и отдаются nginx как обычная статика - оборачивать их в
-  // прокси-роут не нужно и нельзя (он принимает только ссылки на api.moysklad.ru).
+  // Удалённые ссылки намеренно не проксируем: пользовательский запрос никогда
+  // не должен инициировать загрузку из МойСклад. Не успевшее скачаться фото
+  // временно отображается белым фоном до следующей фоновой синхронизации.
   if (href.startsWith("/")) return href;
-  return `/api/moysklad/image?href=${encodeURIComponent(href)}`;
+  return null;
 }
 
 export function getItemThumbnailUrl(item: MoyskladAssortmentItem): string | null {

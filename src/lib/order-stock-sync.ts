@@ -25,11 +25,11 @@ export async function syncOrderToMoysklad(order: Order): Promise<void> {
   }
 
   const rawItems = Array.isArray(order.items) ? (order.items as StoredOrderItem[]) : [];
-  const positions: DemandPositionInput[] = rawItems
+  const requestedPositions = rawItems
     .filter((item) => item.id && item.quantity)
     .map((item) => ({ productId: item.id!, quantity: item.quantity!, priceKopecks: Math.round(item.price ?? 0) }));
 
-  if (positions.length === 0) {
+  if (requestedPositions.length === 0) {
     await prisma.order.update({
       where: { id: order.id },
       data: { moyskladSyncStatus: "SKIPPED", moyskladSyncError: "В заказе нет позиций с товарами МойСклад" },
@@ -38,6 +38,17 @@ export async function syncOrderToMoysklad(order: Order): Promise<void> {
   }
 
   try {
+    const catalogRows = await prisma.catalogProduct.findMany({
+      where: { id: { in: requestedPositions.map((position) => position.productId) }, archived: false },
+      select: { id: true, entityType: true },
+    });
+    const entityTypeById = new Map(catalogRows.map((row) => [row.id, row.entityType]));
+    const positions: DemandPositionInput[] = requestedPositions.map((position) => {
+      const entityType = entityTypeById.get(position.productId);
+      if (!entityType) throw new Error(`Товар ${position.productId} отсутствует в локальном зеркале каталога`);
+      return { ...position, entityType };
+    });
+
     const demand = await createDemandForOrder({
       orderNumber: order.number,
       customerName: order.customerName ?? "Покупатель с сайта",

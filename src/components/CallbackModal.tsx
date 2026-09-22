@@ -146,19 +146,20 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
   };
 
   useEffect(() => {
-    const state = readAttemptsState();
-    if (state.lockedUntil && state.lockedUntil > Date.now()) {
-      setLockedUntil(state.lockedUntil);
-    } else if (state.lockedUntil) {
-      writeAttemptsState({ count: 0, lockedUntil: null });
-    }
+    const timer = setTimeout(() => {
+      const state = readAttemptsState();
+      if (state.lockedUntil && state.lockedUntil > Date.now()) {
+        setLockedUntil(state.lockedUntil);
+        setLockRemainingMs(state.lockedUntil - Date.now());
+      } else if (state.lockedUntil) {
+        writeAttemptsState({ count: 0, lockedUntil: null });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (!lockedUntil) {
-      setLockRemainingMs(0);
-      return;
-    }
+    if (!lockedUntil) return;
     const tick = () => {
       const remaining = lockedUntil - Date.now();
       if (remaining <= 0) {
@@ -169,12 +170,15 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
         setLockRemainingMs(remaining);
       }
     };
-    tick();
+    const initialTimer = setTimeout(tick, 0);
     const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [lockedUntil]);
 
-  const isLocked = lockedUntil !== null && lockedUntil > Date.now();
+  const isLocked = lockedUntil !== null && lockRemainingMs > 0;
 
   const phoneDigits = phone.replace(/\D/g, "");
   const isPhoneValid = /^7\d{10}$/.test(phoneDigits);
@@ -202,6 +206,7 @@ export default function CallbackModal({ onClose }: { onClose: () => void }) {
         const lockUntil = Date.now() + CAPTCHA_LOCKOUT_MS;
         writeAttemptsState({ count: 0, lockedUntil: lockUntil });
         setLockedUntil(lockUntil);
+        setLockRemainingMs(CAPTCHA_LOCKOUT_MS);
         setErrorMessage(`Слишком много неверных попыток ввода кода. Повторите через ${formatLockDuration(CAPTCHA_LOCKOUT_MS)}.`);
       } else {
         writeAttemptsState({ count: nextCount, lockedUntil: null });

@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -32,11 +32,10 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      # Есть заранее известные (legacy) ошибки линта в проекте - не блокируем деплой,
-      # но результат виден в логах CI
-      - name: Lint (non-blocking)
+      # Линтер не связан с лимитами МойСклад: он проверяет качество кода и теперь
+      # блокирует выкладку при новой ошибке, чтобы дефекты не попадали на сервер.
+      - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       # Полная сборка проекта - ловит ошибки типов и build-time ошибки до деплоя
       - name: Build
@@ -51,7 +50,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Каждый деплой получает свой каталог releases/<release_id> на сервере -
       # это основа blue-green схемы в scripts/deploy.sh: новая версия

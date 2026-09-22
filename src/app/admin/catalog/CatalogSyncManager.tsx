@@ -71,7 +71,8 @@ export default function CatalogSyncManager() {
   }, []);
 
   useEffect(() => {
-    load();
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
   }, [load]);
 
   // Пока синхронизация идёт, подтягиваем статус - полная занимает минуты, и без

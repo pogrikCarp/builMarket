@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Миниатюры в служебном интерфейсе уже подготовлены локальным зеркалом каталога. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildFolderTree, type FolderLike } from "@/lib/folder-tree";
@@ -35,7 +36,9 @@ function thumbnailUrl(result: SearchResult): string | null {
   const image = result.images?.rows?.[0];
   if (!image) return null;
   const href = image.miniature?.href ?? image.tiny?.href ?? image.meta.downloadHref ?? image.meta.href;
-  return `/api/moysklad/image?href=${encodeURIComponent(href)}`;
+  // API каталога уже возвращает локальный путь из зеркала. Удалённые ссылки
+  // намеренно не проксируем: просмотр админки не должен обращаться к МойСклад.
+  return href.startsWith("/") ? href : null;
 }
 
 export function PromoManager() {
@@ -95,7 +98,8 @@ export function PromoManager() {
 
   useEffect(() => {
     if (tab !== "browse") return;
-    loadBrowsePage(selectedFolderHref, 0, false);
+    const timer = setTimeout(() => loadBrowsePage(selectedFolderHref, 0, false), 0);
+    return () => clearTimeout(timer);
   }, [tab, selectedFolderHref]);
 
   const loadItems = () => {
@@ -111,15 +115,16 @@ export function PromoManager() {
   };
 
   useEffect(() => {
-    loadItems();
+    const timer = setTimeout(loadItems, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setResults([]);
-      return;
+      const resetTimer = setTimeout(() => setResults([]), 0);
+      return () => clearTimeout(resetTimer);
     }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);

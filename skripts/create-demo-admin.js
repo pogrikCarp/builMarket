@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports -- Серверный deploy-скрипт запускается Node.js как CommonJS. */
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 

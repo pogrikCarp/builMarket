@@ -6,20 +6,14 @@
 // открывается со скоростью запроса к своей же БД, а число запросов к МойСклад
 // не зависит от трафика (см. catalog-sync.ts).
 //
-// Фолбэк: пока зеркало пустое (самый первый деплой - синхронизатор ещё не
-// прошёл), функции ниже прозрачно берут данные напрямую из МойСклад, как было
-// раньше. Так витрина не остаётся пустой ни на одну минуту после релиза.
+// Если зеркало ещё не наполнено, витрина возвращает пустой результат. Это
+// намеренно: трафик посетителей никогда не должен становиться источником
+// запросов к МойСклад. Первичное заполнение и все последующие обновления делает
+// только фоновый синхронизатор (catalog-sync.ts).
 import type { CatalogProduct } from "@prisma/client";
 import { prisma } from "./prisma";
 import type { StoredProductImage } from "./catalog-images";
 import {
-  getAssortment,
-  getAssortmentByFolder,
-  getAssortmentByIds,
-  getAssortmentIdsForSitemap,
-  getProductById,
-  getProductFolders,
-  isMoyskladConfigured,
   type MoyskladAssortmentItem,
   type MoyskladAssortmentResponse,
   type MoyskladProductFolder,
@@ -27,40 +21,10 @@ import {
 } from "./moysklad";
 import {
   normalizeMoyskladHref,
-  toCatalogListItem,
   type CatalogListItem,
 } from "./moysklad-format";
 
 const MOYSKLAD_BASE_URL = "https://api.moysklad.ru/api/remap/1.2";
-
-// Готовность зеркала проверяется на каждый запрос страницы, поэтому результат
-// кэшируем: как только зеркало наполнено, ответ "готово" уже не меняется.
-let mirrorReadyCache: { value: boolean; expiresAt: number } | null = null;
-const MIRROR_READY_TTL_MS = 30_000;
-
-/**
- * Зеркало считается готовым только после первого УСПЕШНО ЗАВЕРШЁННОГО полного
- * синка, а не просто при наличии товаров в таблице. Иначе во время самой первой
- * синхронизации (она идёт минутами, потому что качает все фотографии) сайт
- * показывал бы каталог частично - те позиции, которые синк успел записать.
- * До этого момента данные берутся напрямую из МойСклад, как было раньше.
- */
-export async function isCatalogMirrorReady(): Promise<boolean> {
-  if (mirrorReadyCache && mirrorReadyCache.expiresAt > Date.now()) return mirrorReadyCache.value;
-
-  try {
-    const [count, completedFullSync] = await Promise.all([
-      prisma.catalogProduct.count({ where: { archived: false } }),
-      prisma.catalogSyncRun.findFirst({ where: { mode: "full", status: "OK" }, select: { id: true } }),
-    ]);
-    const value = count > 0 && Boolean(completedFullSync);
-    mirrorReadyCache = { value, expiresAt: Date.now() + (value ? MIRROR_READY_TTL_MS * 10 : MIRROR_READY_TTL_MS) };
-    return value;
-  } catch (error) {
-    console.error("[catalog-db] Не удалось проверить зеркало каталога:", error);
-    return false;
-  }
-}
 
 function parseImages(value: unknown): StoredProductImage[] {
   return Array.isArray(value) ? (value as StoredProductImage[]) : [];
@@ -185,26 +149,6 @@ function toFolderRow(
 
 export async function getCatalogFolders(): Promise<MoyskladProductFolderResponse> {
   const folders = await prisma.catalogFolder.findMany({ orderBy: { name: "asc" } });
-
-  if (folders.length === 0) {
-    if (!isMoyskladConfigured()) return { rows: [], meta: { size: 0, limit: 0, offset: 0 } };
-    const live = await getProductFolders();
-    const normalizedRows = live.rows.map((folder) => ({
-      ...folder,
-      meta: { ...folder.meta, href: normalizeMoyskladHref(folder.meta.href) },
-      productFolder: folder.productFolder
-        ? {
-            ...folder.productFolder,
-            meta: {
-              ...folder.productFolder.meta,
-              href: normalizeMoyskladHref(folder.productFolder.meta.href),
-            },
-          }
-        : undefined,
-    }));
-    return { ...live, rows: normalizedRows };
-  }
-
   const nameByHref = new Map(folders.map((folder) => [normalizeMoyskladHref(folder.href), folder.name]));
   const rows = folders.map((folder) => toFolderRow(folder, nameByHref));
   return { rows, meta: { size: rows.length, limit: rows.length, offset: 0 } };
@@ -344,18 +288,8 @@ async function queryMirrorFull(query: CatalogQuery) {
 export async function getCatalogList(
   query: CatalogQuery
 ): Promise<{ rows: CatalogListItem[]; total: number; limit: number; offset: number }> {
-  if (await isCatalogMirrorReady()) {
-    const { rows, total, limit, offset } = await queryMirrorList(query);
-    return { rows: rows.map(toListItem), total, limit, offset };
-  }
-
-  const live = await getCatalogAssortment(query);
-  return {
-    rows: live.rows.map(toCatalogListItem),
-    total: live.meta.size,
-    limit: live.meta.limit,
-    offset: live.meta.offset,
-  };
+  const { rows, total, limit, offset } = await queryMirrorList(query);
+  return { rows: rows.map(toListItem), total, limit, offset };
 }
 
 /**
@@ -363,36 +297,13 @@ export async function getCatalogList(
  * и галерея целиком (поиск в оверлее, подбор товара в админке).
  */
 export async function getCatalogAssortment(query: CatalogQuery): Promise<MoyskladAssortmentResponse> {
-  if (await isCatalogMirrorReady()) {
-    const { rows, total, limit, offset } = await queryMirrorFull(query);
-    return { rows: rows.map(toAssortmentItem), meta: { size: total, limit, offset } };
-  }
-
-  if (!isMoyskladConfigured()) {
-    return { rows: [], meta: { size: 0, limit: 0, offset: 0 } };
-  }
-  if (query.folderHref) {
-    return getAssortmentByFolder(query.folderHref, query.limit ?? 100, query.offset ?? 0);
-  }
-  return getAssortment(query.limit ?? 100, query.offset ?? 0, query.search);
+  const { rows, total, limit, offset } = await queryMirrorFull(query);
+  return { rows: rows.map(toAssortmentItem), meta: { size: total, limit, offset } };
 }
 
-export async function getCatalogProduct(id: string, knownType?: string): Promise<MoyskladAssortmentItem | null> {
-  const mirrorReady = await isCatalogMirrorReady();
+export async function getCatalogProduct(id: string): Promise<MoyskladAssortmentItem | null> {
   const row = await prisma.catalogProduct.findUnique({ where: { id } });
-  if (row) return toAssortmentItem(row);
-
-  // После первого полного синка отсутствие id в зеркале означает, что товар
-  // удалён/не опубликован. Не позволяем произвольным URL посетителей запускать
-  // до пяти запросов entity/{type}/{id} к МойСклад.
-  if (mirrorReady) return null;
-  if (!isMoyskladConfigured()) return null;
-  try {
-    const item = await getProductById(id, knownType);
-    return item?.name ? item : null;
-  } catch {
-    return null;
-  }
+  return row && !row.archived ? toAssortmentItem(row) : null;
 }
 
 /**
@@ -403,34 +314,16 @@ export async function getCatalogItemsByIds(ids: string[]): Promise<Map<string, M
   const uniqueIds = Array.from(new Set(ids));
   if (uniqueIds.length === 0) return new Map();
 
-  const [rows, mirrorReady] = await Promise.all([
-    prisma.catalogProduct.findMany({ where: { id: { in: uniqueIds }, archived: false } }),
-    isCatalogMirrorReady(),
-  ]);
-  if (mirrorReady || rows.length > 0 || !isMoyskladConfigured()) {
-    return new Map(rows.map((row) => [row.id, toAssortmentItem(row)]));
-  }
-
-  try {
-    return await getAssortmentByIds(uniqueIds);
-  } catch {
-    return new Map();
-  }
+  const rows = await prisma.catalogProduct.findMany({ where: { id: { in: uniqueIds }, archived: false } });
+  return new Map(rows.map((row) => [row.id, toAssortmentItem(row)]));
 }
 
 export async function getCatalogProductIds(maxItems = 5000): Promise<string[]> {
-  // Карта сайта не должна собираться по наполовину наполненному зеркалу -
-  // иначе в sitemap.xml попадёт лишь часть товаров.
-  if (await isCatalogMirrorReady()) {
-    const rows = await prisma.catalogProduct.findMany({
-      where: { archived: false },
-      select: { id: true },
-      take: maxItems,
-      orderBy: { name: "asc" },
-    });
-    return rows.map((row) => row.id);
-  }
-
-  if (!isMoyskladConfigured()) return [];
-  return getAssortmentIdsForSitemap(maxItems);
+  const rows = await prisma.catalogProduct.findMany({
+    where: { archived: false },
+    select: { id: true },
+    take: maxItems,
+    orderBy: { name: "asc" },
+  });
+  return rows.map((row) => row.id);
 }

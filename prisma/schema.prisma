@@ -251,8 +251,8 @@ model CatalogProduct {
   subgroupLabel String?
 
   // [{ url, thumbUrl, remoteHref, remoteThumbHref }] - url/thumbUrl это уже
-  // локальные пути вида /catalog-images/..., remote* остаются как запасной
-  // вариант через прокси-роут, если файл на диске почему-то не сохранился.
+  // локальные пути вида /catalog-images/..., remote* нужны только фоновой
+  // синхронизации для повторной попытки, посетителям они не отдаются.
   images     Json
   // [{ name, value }] - значения атрибутов уже приведены к строке.
   attributes Json

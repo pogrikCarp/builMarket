@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkStockAvailability } from "@/lib/moysklad-orders";
@@ -157,12 +157,12 @@ export async function POST(request: Request) {
     // (лимитер запросов при 429 повторяет попытку с задержками до ~15 сек) -
     // это не должно задерживать подтверждение заказа покупателю. Результат
     // (успех/ошибка) сохраняется в самом заказе и виден в админке.
-    void syncOrderToMoysklad(order);
+    after(() => syncOrderToMoysklad(order));
 
     // Письмо о заказе (менеджерам + покупателю, если указал email) - тоже не
     // блокирует ответ: если SMTP на сервере не настроен или временно недоступен,
     // заказ всё равно считается оформленным, ошибка только логируется.
-    void sendOrderCreatedNotification(order);
+    after(() => sendOrderCreatedNotification(order));
 
     return NextResponse.json(
       {
