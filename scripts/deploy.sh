@@ -171,20 +171,27 @@ UNIT
 
   cat > /etc/systemd/system/domstroy-catalog-stock.timer <<'UNIT'
 [Unit]
-Description=DomStroy: остатки и цены каждые 10 минут
+Description=DomStroy: инкрементальная синхронизация каталога каждые 10 минут
 
 [Timer]
-OnCalendar=*:0/10
+OnBootSec=2min
+OnUnitActiveSec=10min
 RandomizedDelaySec=60
 Persistent=true
+Unit=domstroy-catalog-stock.service
 
 [Install]
 WantedBy=timers.target
 UNIT
 
   systemctl daemon-reload
-  systemctl enable --now domstroy-catalog-sync.timer >/dev/null 2>&1 || true
-  systemctl enable --now domstroy-catalog-stock.timer >/dev/null 2>&1 || true
+  # Не скрываем ошибки systemd: неработающий таймер оставлял бы сайт на старом
+  # снимке каталога, а деплой при этом выглядел бы успешным. restart обязателен,
+  # потому что enable --now не перечитывает расписание уже активного таймера.
+  systemctl enable domstroy-catalog-sync.timer domstroy-catalog-stock.timer >/dev/null
+  systemctl restart domstroy-catalog-sync.timer domstroy-catalog-stock.timer
+  systemctl is-active --quiet domstroy-catalog-sync.timer
+  systemctl is-active --quiet domstroy-catalog-stock.timer
 }
 
 # Сразу после переключения трафика подтягиваем каталог в новый релиз: на самом

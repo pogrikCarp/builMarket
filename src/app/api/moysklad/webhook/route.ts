@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { runCatalogSync } from "@/lib/catalog-sync";
 
 export const runtime = "nodejs";
@@ -52,6 +52,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, updated: 0 });
   }
 
-  void runCatalogSync({ mode: "products", trigger: "webhook", productIds });
+  after(() => runCatalogSync({ mode: "products", trigger: "webhook", productIds }));
   return NextResponse.json({ ok: true, queued: productIds.length });
 }

@@ -23,7 +23,10 @@ export const CATALOG_IMAGES_URL_PREFIX = "/catalog-images";
 // На сервере это симлинк на $APP_DIR/shared/catalog-images (см. scripts/deploy.sh):
 // файлы переживают blue-green переключение релизов и не качаются заново после
 // каждого деплоя.
-const CATALOG_IMAGES_DIR = path.join(process.cwd(), "public", "catalog-images");
+// Каталог является runtime-хранилищем (на сервере это shared-симлинк), а не
+// входом сборщика. Без turbopackIgnore Next.js пытался трассировать десятки
+// тысяч фотографий в NFT-манифест каждого API-роута и замедлял сборку/деплой.
+const CATALOG_IMAGES_DIR = path.resolve("public", "catalog-images");
 
 // Страховка от неожиданно огромного исходника в МойСклад: карточке товара такой
 // файл всё равно не нужен, а диск сервера не бесконечный (45 ГБ на текущем VPS).
@@ -43,7 +46,7 @@ export type StoredProductImage = {
   url: string | null;
   /** Локальный путь превью для карточек каталога. */
   thumbUrl: string | null;
-  /** Исходные ссылки МойСклад - запасной вариант через /api/moysklad/image. */
+  /** Исходные ссылки МойСклад нужны синхронизатору для повторной загрузки. */
   remoteHref?: string;
   remoteThumbHref?: string;
 };
@@ -60,8 +63,8 @@ function resolveTargetPath(hash: string, extension: string) {
   const fileName = `${hash}.${extension}`;
   return {
     relativeUrl: `${CATALOG_IMAGES_URL_PREFIX}/${shard}/${fileName}`,
-    directory: path.join(CATALOG_IMAGES_DIR, shard),
-    absolutePath: path.join(CATALOG_IMAGES_DIR, shard, fileName),
+    directory: path.join(/* turbopackIgnore: true */ CATALOG_IMAGES_DIR, shard),
+    absolutePath: path.join(/* turbopackIgnore: true */ CATALOG_IMAGES_DIR, shard, fileName),
   };
 }
 
@@ -80,8 +83,8 @@ async function findExistingFile(hash: string): Promise<string | null> {
 
 /**
  * Скачивает один файл изображения, если его ещё нет на диске, и возвращает
- * локальный путь. Возвращает null, если МойСклад файл не отдал - тогда карточка
- * покажет фото через прокси-роут по исходной ссылке (см. StoredProductImage).
+ * локальный путь. Возвращает null, если МойСклад файл не отдал; карточка
+ * временно останется без фото, а следующий фоновый синк повторит загрузку.
  */
 async function ensureLocalImage(href: string): Promise<{ url: string; downloaded: boolean } | null> {
   const hash = hashHref(href);
@@ -144,8 +147,8 @@ export async function storeProductImages(
       if (full?.downloaded) downloaded++;
       if (thumb?.downloaded && thumb !== full) downloaded++;
 
-      // Товар без единого сохранённого файла всё равно оставляем в галерее: путь
-      // через прокси по remote-ссылке сработает как раньше.
+      // Исходную ссылку сохраняем только для диагностики/повторной загрузки.
+      // Посетителям она не отдаётся: браузер не должен обращаться к МойСклад.
       const image: StoredProductImage = {
         url: full?.url ?? null,
         thumbUrl: thumb?.url ?? full?.url ?? null,
@@ -181,7 +184,7 @@ export async function cleanupOrphanImages(referencedUrls: Set<string>): Promise<
   }
 
   for (const shard of shards) {
-    const shardPath = path.join(CATALOG_IMAGES_DIR, shard);
+    const shardPath = path.join(/* turbopackIgnore: true */ CATALOG_IMAGES_DIR, shard);
     let files: string[];
     try {
       files = await readdir(shardPath);
@@ -194,7 +197,7 @@ export async function cleanupOrphanImages(referencedUrls: Set<string>): Promise<
       if (referencedUrls.has(url)) continue;
       // Недописанные .tmp файлы от упавшего синка тоже подчищаем.
       try {
-        await rm(path.join(shardPath, file), { force: true });
+        await rm(path.join(/* turbopackIgnore: true */ shardPath, file), { force: true });
         removed++;
       } catch {
         // не смогли удалить - не повод ронять синхронизацию

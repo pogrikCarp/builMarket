@@ -27,7 +27,12 @@ import {
   type MoyskladProductFolder,
 } from "./moysklad";
 import { moyskladFetch } from "./moysklad-limiter";
-import { formatAttributeValue, getFolderGroupLabel, getFolderSubgroupLabel } from "./moysklad-format";
+import {
+  formatAttributeValue,
+  getFolderGroupLabel,
+  getFolderSubgroupLabel,
+  normalizeMoyskladHref,
+} from "./moysklad-format";
 
 export type CatalogSyncMode = "full" | "stock" | "products";
 export type CatalogSyncTrigger = "cron" | "admin" | "order" | "webhook" | "bootstrap";
@@ -115,7 +120,7 @@ async function fetchAllFolders(): Promise<MoyskladProductFolder[]> {
   return rows;
 }
 
-type ExistingProduct = { id: string; msUpdatedAt: Date | null; images: Prisma.JsonValue };
+type ExistingProduct = { id: string; msUpdatedAt: Date | null; images: Prisma.JsonValue; archived?: boolean };
 
 function needsImageRefresh(item: MoyskladAssortmentItem, existing: ExistingProduct | undefined): boolean {
   const remoteCount = item.images?.meta?.size ?? 0;
@@ -220,16 +225,16 @@ async function loadExistingProducts(ids: string[]): Promise<Map<string, Existing
   return new Map(rows.map((row) => [row.id, row]));
 }
 
-async function syncFolders(): Promise<void> {
+async function syncFolders(): Promise<number> {
   const folders = await fetchAllFolders();
-  if (folders.length === 0) return;
+  if (folders.length === 0) return 0;
 
   for (const folder of folders) {
     const data = {
       name: folder.name,
       pathName: folder.pathName ?? null,
-      href: folder.meta.href,
-      parentHref: folder.productFolder?.meta?.href ?? null,
+      href: normalizeMoyskladHref(folder.meta.href),
+      parentHref: normalizeMoyskladHref(folder.productFolder?.meta?.href) || null,
       syncedAt: new Date(),
     };
     await prisma.catalogFolder.upsert({
@@ -244,6 +249,8 @@ async function syncFolders(): Promise<void> {
   await prisma.catalogFolder.deleteMany({
     where: { id: { notIn: folders.map((folder) => folder.id) } },
   });
+
+  return folders.length;
 }
 
 async function syncFullCatalog(runStartedAt: Date): Promise<{ itemCount: number; imageCount: number; removedImageCount: number }> {
@@ -299,13 +306,30 @@ async function syncFullCatalog(runStartedAt: Date): Promise<{ itemCount: number;
 }
 
 /**
- * Быстрое обновление остатков и цен: без expand и без фотографий, поэтому весь
- * каталог до 1000 позиций укладывается в один запрос к МойСклад.
+ * Инкрементальное обновление каталога.
+ *
+ * Основная выборка идёт без expand: до 1000 позиций за один запрос. Помимо цен
+ * и остатков она содержит id и `updated`, поэтому мы можем обнаружить новые,
+ * разархивированные и изменённые товары. Только для них делается дополнительный
+ * батч-запрос с описанием, категорией, атрибутами и метаданными фотографий.
+ *
+ * Раньше частая задача обновляла UPDATE-ом только уже существующие строки. Новый
+ * товар/раздел появлялся на сайте лишь после ночного полного синка; если таймер
+ * полного синка не срабатывал, он не появлялся вообще.
  */
-async function syncStock(): Promise<number> {
+async function syncStock(
+  runStartedAt: Date
+): Promise<{ itemCount: number; imageCount: number; changedItemCount: number; folderCount: number }> {
+  const folderCount = await syncFolders();
+  const existingRows = await prisma.catalogProduct.findMany({
+    select: { id: true, msUpdatedAt: true, images: true, archived: true },
+  });
+  const existingById = new Map(existingRows.map((row) => [row.id, row]));
+
   let offset = 0;
   let total = Infinity;
   const updates: { id: string; quantity: number | null; price: number | null }[] = [];
+  const changedIds: string[] = [];
 
   while (offset < total) {
     const params = new URLSearchParams();
@@ -315,6 +339,15 @@ async function syncStock(): Promise<number> {
       buildUrl("/entity/assortment", params)
     );
     for (const row of page.rows) {
+      const existing = existingById.get(row.id);
+      const remoteUpdatedAt = parseMoyskladDate(row.updated);
+      const metadataChanged = Boolean(
+        !existing ||
+          existing.archived ||
+          (remoteUpdatedAt &&
+            (!existing.msUpdatedAt || remoteUpdatedAt.getTime() !== existing.msUpdatedAt.getTime()))
+      );
+      if (metadataChanged) changedIds.push(row.id);
       updates.push({
         id: row.id,
         quantity: row.quantity ?? null,
@@ -341,7 +374,28 @@ async function syncStock(): Promise<number> {
     `;
   }
 
-  return updates.length;
+  let imageCount = 0;
+  if (changedIds.length > 0) {
+    const changed = await syncProducts(changedIds);
+    imageCount = changed.imageCount;
+  }
+
+  // Полная лёгкая выборка успешно завершилась: позиции, которых МойСклад больше
+  // не отдаёт, скрываем. Все присутствующие строки получили свежий syncedAt
+  // либо через массовый UPDATE, либо через upsert нового товара выше.
+  if (updates.length > 0) {
+    await prisma.catalogProduct.updateMany({
+      where: { syncedAt: { lt: runStartedAt }, archived: false },
+      data: { archived: true },
+    });
+  }
+
+  return {
+    itemCount: updates.length,
+    imageCount,
+    changedItemCount: changedIds.length,
+    folderCount,
+  };
 }
 
 /**
@@ -389,11 +443,23 @@ export async function runCatalogSync(options: {
     return { mode, status: "SKIPPED", itemCount: 0, imageCount: 0, durationMs: 0, error: "Синхронизация уже выполняется" };
   }
 
-  syncInProgress = true;
   const runStartedAt = new Date();
-  const run = await prisma.catalogSyncRun.create({ data: { mode, trigger, startedAt: runStartedAt } });
+  let run: { id: string } | null = null;
+  syncInProgress = true;
 
   try {
+    // Процесс могли перезапустить посреди прошлого синка. Такие строки больше не
+    // должны вечно выглядеть как RUNNING в админке и затруднять диагностику.
+    await prisma.catalogSyncRun.updateMany({
+      where: { status: "RUNNING", startedAt: { lt: new Date(Date.now() - STALE_RUN_MS) } },
+      data: {
+        status: "FAILED",
+        error: "Синхронизация была прервана перезапуском процесса или превысила допустимое время",
+        finishedAt: new Date(),
+      },
+    });
+    run = await prisma.catalogSyncRun.create({ data: { mode, trigger, startedAt: runStartedAt } });
+
     let itemCount = 0;
     let imageCount = 0;
     let removedImageCount = 0;
@@ -404,7 +470,12 @@ export async function runCatalogSync(options: {
       imageCount = result.imageCount;
       removedImageCount = result.removedImageCount;
     } else if (mode === "stock") {
-      itemCount = await syncStock();
+      const result = await syncStock(runStartedAt);
+      itemCount = result.itemCount;
+      imageCount = result.imageCount;
+      console.log(
+        `[catalog-sync] incremental: категорий ${result.folderCount}, новых/изменённых товаров ${result.changedItemCount}`
+      );
     } else {
       const result = await syncProducts(productIds);
       itemCount = result.itemCount;
@@ -424,10 +495,12 @@ export async function runCatalogSync(options: {
     return { mode, status: "OK", itemCount, imageCount, removedImageCount, durationMs };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Неизвестная ошибка";
-    await prisma.catalogSyncRun.update({
-      where: { id: run.id },
-      data: { status: "FAILED", error: message.slice(0, 1000), finishedAt: new Date() },
-    });
+    if (run) {
+      await prisma.catalogSyncRun.update({
+        where: { id: run.id },
+        data: { status: "FAILED", error: message.slice(0, 1000), finishedAt: new Date() },
+      });
+    }
     console.error(`[catalog-sync] ${mode} (${trigger}) завершился ошибкой:`, message);
     return { mode, status: "FAILED", itemCount: 0, imageCount: 0, durationMs: Date.now() - startedAt, error: message };
   } finally {
@@ -450,7 +523,7 @@ export async function refreshCatalogProductsAfterOrder(productIds: string[]): Pr
 }
 
 export async function getCatalogSyncStatus() {
-  const [productCount, archivedCount, folderCount, lastRuns, staleRun] = await Promise.all([
+  const [productCount, archivedCount, folderCount, lastRuns, staleRun, lastSuccessfulRefresh] = await Promise.all([
     prisma.catalogProduct.count({ where: { archived: false } }),
     prisma.catalogProduct.count({ where: { archived: true } }),
     prisma.catalogFolder.count(),
@@ -459,7 +532,22 @@ export async function getCatalogSyncStatus() {
       where: { status: "RUNNING", startedAt: { gte: new Date(Date.now() - STALE_RUN_MS) } },
       orderBy: { startedAt: "desc" },
     }),
+    prisma.catalogSyncRun.findFirst({
+      where: { status: "OK", mode: { in: ["full", "stock"] } },
+      orderBy: { finishedAt: "desc" },
+      select: { finishedAt: true },
+    }),
   ]);
 
-  return { productCount, archivedCount, folderCount, lastRuns, isRunning: Boolean(staleRun) || syncInProgress };
+  const lastSuccessfulSyncAt = lastSuccessfulRefresh?.finishedAt ?? null;
+  const isStale = !lastSuccessfulSyncAt || Date.now() - lastSuccessfulSyncAt.getTime() > 30 * 60 * 1000;
+  return {
+    productCount,
+    archivedCount,
+    folderCount,
+    lastRuns,
+    lastSuccessfulSyncAt,
+    isStale,
+    isRunning: Boolean(staleRun) || syncInProgress,
+  };
 }

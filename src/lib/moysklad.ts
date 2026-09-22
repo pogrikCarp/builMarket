@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { moyskladFetch } from "./moysklad-limiter";
+import { normalizeMoyskladHref } from "./moysklad-format";
 
 const BASE_URL = `https://api.moysklad.ru/api/remap/1.2`;
 const ENV_FILES = [".env.local", ".env", "envir.env"];
@@ -94,7 +95,10 @@ async function withMemoryCache<T>(
 
 function getTokenFromFile() {
   for (const fileName of ENV_FILES) {
-    const filePath = join(process.cwd(), fileName);
+    // Это небольшой runtime-fallback для локальной разработки, не вход сборки.
+    // Без пометки Turbopack пытался трассировать весь проект из-за переменного
+    // fileName и добавлял лишние файлы в server bundle.
+    const filePath = join(/* turbopackIgnore: true */ process.cwd(), fileName);
     if (!existsSync(filePath)) continue;
 
     const content = readFileSync(filePath, "utf8");
@@ -537,7 +541,7 @@ export async function getAssortmentByFolder(
     params.append("offset", String(offset));
     // withSubFolders=true (значение по умолчанию в МойСклад, но задаём явно) гарантирует,
     // что при выборе раздела в выдачу попадут и товары всех его подкатегорий.
-    params.append("filter", `productFolder=${folderHref};withSubFolders=true`);
+    params.append("filter", `productFolder=${normalizeMoyskladHref(folderHref)};withSubFolders=true`);
     params.append("expand", "productFolder,productFolder.productFolder,images,attributes");
     const url = buildUrl("/entity/assortment", params);
     const res = await moyskladFetch(url, {

@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getCatalogSyncStatus, runCatalogSync, type CatalogSyncMode } from "@/lib/catalog-sync";
 
@@ -48,19 +48,27 @@ export async function GET() {
  * запрос из админки просто отваливались бы по таймауту.
  */
 export async function POST(request: Request) {
-  if (!isAuthorizedBySecret(request) && !(await isAuthorizedAsAdmin())) {
+  const authorizedBySecret = isAuthorizedBySecret(request);
+  if (!authorizedBySecret && !(await isAuthorizedAsAdmin())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
   const requestedMode = searchParams.get("mode") ?? "full";
   const mode = MODES.includes(requestedMode as CatalogSyncMode) ? (requestedMode as CatalogSyncMode) : "full";
-  const wait = searchParams.get("wait") === "1" || mode !== "full";
+  // systemd должен только надёжно поставить работу в очередь и сразу завершить
+  // oneshot-unit. Иначе при появлении нескольких новых товаров с фотографиями
+  // curl может дождаться своего timeout, хотя синк внутри Next.js продолжится.
+  // Администратор при ручном обновлении остатков по-прежнему получает результат.
+  const wait = searchParams.get("wait") === "1" || (!authorizedBySecret && mode !== "full");
 
-  const trigger = isAuthorizedBySecret(request) ? "cron" : "admin";
+  const trigger = authorizedBySecret ? "cron" : "admin";
 
   if (!wait) {
-    void runCatalogSync({ mode, trigger });
+    // Next.js 16: after() гарантирует выполнение фоновой работы после отправки
+    // ответа Route Handler. Обычный `void promise` не описывает этот жизненный
+    // цикл явно и при смене способа запуска приложения может быть оборван.
+    after(() => runCatalogSync({ mode, trigger }));
     return NextResponse.json({ started: true, mode }, { status: 202 });
   }
 

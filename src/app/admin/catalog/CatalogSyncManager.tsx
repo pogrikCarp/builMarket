@@ -19,12 +19,14 @@ type SyncStatus = {
   archivedCount: number;
   folderCount: number;
   isRunning: boolean;
+  isStale: boolean;
+  lastSuccessfulSyncAt: string | null;
   lastRuns: SyncRun[];
 };
 
 const MODE_LABELS: Record<string, string> = {
   full: "Полная синхронизация",
-  stock: "Остатки и цены",
+  stock: "Быстрая синхронизация",
   products: "Отдельные товары",
 };
 
@@ -108,10 +110,10 @@ export default function CatalogSyncManager() {
         <h1 className="text-2xl font-semibold text-slate-900">Управление каталогом</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-500">
           Каталог хранится в собственной базе сайта и обновляется из МойСклад фоновой
-          синхронизацией: остатки и цены — каждые 10 минут, полное обновление (описания,
-          характеристики, фотографии) — раз в сутки ночью, а также сразу после оформления
-          заказа. Посетители сайта работают только с этой базой, поэтому каталог открывается
-          мгновенно и МойСклад не получает запросов от трафика сайта.
+          синхронизацией: новые и изменённые товары, разделы, остатки и цены — каждые
+          10 минут; контрольное полное обновление — раз в сутки ночью, а остатки купленных
+          позиций обновляются сразу после заказа. Посетители сайта работают только с этой
+          базой, поэтому каталог открывается быстро и не создаёт запросов к МойСклад.
         </p>
 
         {loading ? (
@@ -148,13 +150,24 @@ export default function CatalogSyncManager() {
                 disabled={Boolean(starting) || status?.isRunning}
                 className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {starting === "stock" ? "Обновление…" : "Обновить остатки и цены"}
+                {starting === "stock" ? "Обновление…" : "Быстро обновить каталог"}
               </button>
             </div>
 
             {status?.isRunning && (
               <p className="mt-4 text-sm text-amber-600">
                 Синхронизация выполняется — статус обновляется автоматически.
+              </p>
+            )}
+            {status?.lastSuccessfulSyncAt && !status.isStale && (
+              <p className="mt-4 text-sm text-emerald-600">
+                Последнее успешное обновление: {formatDateTime(status.lastSuccessfulSyncAt)}.
+              </p>
+            )}
+            {status?.isStale && (
+              <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                Каталог не обновлялся более 30 минут. Запустите полную синхронизацию и проверьте
+                состояние systemd-таймера на сервере.
               </p>
             )}
             {message && <p className="mt-4 text-sm text-emerald-600">{message}</p>}

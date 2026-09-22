@@ -5,6 +5,26 @@
 import type { MoyskladAssortmentItem, MoyskladAttributeValue } from "./moysklad";
 
 /**
+ * В коллекциях с `expand` МойСклад иногда добавляет параметры исходного
+ * запроса к `meta.href` каждой строки (например `?expand=productFolder`).
+ * Ссылки на ту же папку внутри `productFolder.meta.href` при этом приходят без
+ * параметров. Если сравнивать их как строки, дерево категорий распадается:
+ * родитель существует, но его дочерние папки не находятся.
+ *
+ * Для идентификации сущности параметры запроса и hash не имеют значения,
+ * поэтому в зеркале и при сравнении используем канонический href.
+ */
+export function normalizeMoyskladHref(href?: string | null): string {
+  if (!href) return "";
+  const queryIndex = href.indexOf("?");
+  const hashIndex = href.indexOf("#");
+  const cutAt = [queryIndex, hashIndex]
+    .filter((index) => index >= 0)
+    .reduce((smallest, index) => Math.min(smallest, index), href.length);
+  return href.slice(0, cutAt).replace(/\/+$/, "");
+}
+
+/**
  * МойСклад отдаёт байты изображения только с авторизацией по токену, поэтому
  * прямая ссылка на api.moysklad.ru не подходит для <img>/<Image> в браузере.
  * Возвращаем адрес нашего собственного прокси-роута, который сервер запросит

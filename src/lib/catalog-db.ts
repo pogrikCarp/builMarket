@@ -26,9 +26,7 @@ import {
   type MoyskladProductFolderResponse,
 } from "./moysklad";
 import {
-  getFolderGroupLabel,
-  getFolderSubgroupLabel,
-  getMoyskladImageProxyUrl,
+  normalizeMoyskladHref,
   toCatalogListItem,
   type CatalogListItem,
 } from "./moysklad-format";
@@ -77,8 +75,12 @@ function imageUrls(images: StoredProductImage[]) {
   const thumbs: string[] = [];
 
   for (const image of images) {
-    const fullUrl = image.url ?? getMoyskladImageProxyUrl(image.remoteHref);
-    const thumbUrl = image.thumbUrl ?? getMoyskladImageProxyUrl(image.remoteThumbHref) ?? fullUrl;
+    // В готовом зеркале браузер никогда не должен тянуть картинку через API
+    // МойСклад. Если локальная загрузка конкретного файла не удалась, временно
+    // показываем белый фон; синхронизатор повторит скачивание, не перекладывая
+    // API-нагрузку на посетителей.
+    const fullUrl = image.url ?? null;
+    const thumbUrl = image.thumbUrl ?? fullUrl;
     if (fullUrl) full.push(fullUrl);
     if (thumbUrl) thumbs.push(thumbUrl);
   }
@@ -126,7 +128,7 @@ function toListItem(row: CatalogListRow): CatalogListItem {
  * getMoyskladImageProxyUrl).
  */
 function toAssortmentItem(row: CatalogProduct): MoyskladAssortmentItem {
-  const images = parseImages(row.images);
+  const images = parseImages(row.images).filter((image) => Boolean(image.url));
 
   return {
     meta: { href: `${MOYSKLAD_BASE_URL}/entity/${row.entityType}/${row.id}`, type: row.entityType },
@@ -149,9 +151,9 @@ function toAssortmentItem(row: CatalogProduct): MoyskladAssortmentItem {
     images: {
       meta: { href: "", size: images.length },
       rows: images.map((image) => {
-        const full = image.url ?? image.remoteHref;
-        const thumb = image.thumbUrl ?? image.remoteThumbHref ?? full;
-        return { meta: { href: full ?? "" }, miniature: thumb ? { href: thumb } : undefined };
+        const full = image.url ?? "";
+        const thumb = image.thumbUrl ?? full;
+        return { meta: { href: full }, miniature: thumb ? { href: thumb } : undefined };
       }),
     },
     attributes: parseAttributes(row.attributes).map((attribute) => ({
@@ -168,12 +170,15 @@ function toFolderRow(
   nameByHref: Map<string, string>
 ): MoyskladProductFolder {
   return {
-    meta: { href: folder.href, type: "productfolder" },
+    meta: { href: normalizeMoyskladHref(folder.href), type: "productfolder" },
     id: folder.id,
     name: folder.name,
     pathName: folder.pathName ?? undefined,
     productFolder: folder.parentHref
-      ? { meta: { href: folder.parentHref }, name: nameByHref.get(folder.parentHref) }
+      ? {
+          meta: { href: normalizeMoyskladHref(folder.parentHref) },
+          name: nameByHref.get(normalizeMoyskladHref(folder.parentHref)),
+        }
       : undefined,
   };
 }
@@ -183,10 +188,24 @@ export async function getCatalogFolders(): Promise<MoyskladProductFolderResponse
 
   if (folders.length === 0) {
     if (!isMoyskladConfigured()) return { rows: [], meta: { size: 0, limit: 0, offset: 0 } };
-    return getProductFolders();
+    const live = await getProductFolders();
+    const normalizedRows = live.rows.map((folder) => ({
+      ...folder,
+      meta: { ...folder.meta, href: normalizeMoyskladHref(folder.meta.href) },
+      productFolder: folder.productFolder
+        ? {
+            ...folder.productFolder,
+            meta: {
+              ...folder.productFolder.meta,
+              href: normalizeMoyskladHref(folder.productFolder.meta.href),
+            },
+          }
+        : undefined,
+    }));
+    return { ...live, rows: normalizedRows };
   }
 
-  const nameByHref = new Map(folders.map((folder) => [folder.href, folder.name]));
+  const nameByHref = new Map(folders.map((folder) => [normalizeMoyskladHref(folder.href), folder.name]));
   const rows = folders.map((folder) => toFolderRow(folder, nameByHref));
   return { rows, meta: { size: rows.length, limit: rows.length, offset: 0 } };
 }
@@ -205,12 +224,14 @@ async function getFolderIdsWithDescendants(folderHref: string): Promise<string[]
   const childrenByParent = new Map<string, FolderNode[]>();
   for (const folder of folders) {
     if (!folder.parentHref) continue;
-    const siblings = childrenByParent.get(folder.parentHref) ?? [];
+    const parentHref = normalizeMoyskladHref(folder.parentHref);
+    const siblings = childrenByParent.get(parentHref) ?? [];
     siblings.push(folder);
-    childrenByParent.set(folder.parentHref, siblings);
+    childrenByParent.set(parentHref, siblings);
   }
 
-  const root = folders.find((folder) => folder.href === folderHref);
+  const normalizedFolderHref = normalizeMoyskladHref(folderHref);
+  const root = folders.find((folder) => normalizeMoyskladHref(folder.href) === normalizedFolderHref);
   if (!root) return [];
 
   const ids: string[] = [];
@@ -221,7 +242,7 @@ async function getFolderIdsWithDescendants(folderHref: string): Promise<string[]
     if (visited.has(current.id)) continue;
     visited.add(current.id);
     ids.push(current.id);
-    queue.push(...(childrenByParent.get(current.href) ?? []));
+    queue.push(...(childrenByParent.get(normalizeMoyskladHref(current.href)) ?? []));
   }
 
   return ids;
@@ -357,9 +378,14 @@ export async function getCatalogAssortment(query: CatalogQuery): Promise<Moyskla
 }
 
 export async function getCatalogProduct(id: string, knownType?: string): Promise<MoyskladAssortmentItem | null> {
+  const mirrorReady = await isCatalogMirrorReady();
   const row = await prisma.catalogProduct.findUnique({ where: { id } });
   if (row) return toAssortmentItem(row);
 
+  // После первого полного синка отсутствие id в зеркале означает, что товар
+  // удалён/не опубликован. Не позволяем произвольным URL посетителей запускать
+  // до пяти запросов entity/{type}/{id} к МойСклад.
+  if (mirrorReady) return null;
   if (!isMoyskladConfigured()) return null;
   try {
     const item = await getProductById(id, knownType);
@@ -377,8 +403,11 @@ export async function getCatalogItemsByIds(ids: string[]): Promise<Map<string, M
   const uniqueIds = Array.from(new Set(ids));
   if (uniqueIds.length === 0) return new Map();
 
-  const rows = await prisma.catalogProduct.findMany({ where: { id: { in: uniqueIds } } });
-  if (rows.length > 0 || !isMoyskladConfigured()) {
+  const [rows, mirrorReady] = await Promise.all([
+    prisma.catalogProduct.findMany({ where: { id: { in: uniqueIds }, archived: false } }),
+    isCatalogMirrorReady(),
+  ]);
+  if (mirrorReady || rows.length > 0 || !isMoyskladConfigured()) {
     return new Map(rows.map((row) => [row.id, toAssortmentItem(row)]));
   }
 
