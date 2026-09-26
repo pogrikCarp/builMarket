@@ -398,9 +398,9 @@ export default function CatalogBrowser({
   };
 
   return (
-    <div className="flex min-h-[400px] flex-col md:flex-row md:gap-0">
+    <div className="flex min-h-[400px] flex-col md:items-start md:flex-row md:gap-0">
       {/* Sidebar групп — горизонтальный скролл на мобильных, вертикальный на md+ */}
-      <aside className="w-full shrink-0 border-b border-slate-200 bg-white md:w-56 md:border-b-0 md:border-r lg:w-64">
+      <aside className="w-full shrink-0 border-b border-slate-200 bg-white md:sticky md:top-16 md:max-h-[calc(100dvh-4rem)] md:w-56 md:self-start md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r lg:w-64">
         {/* Мобильный вид: горизонтальные кнопки-чипы, подкатегории раскрываются под выбранным разделом */}
         <div className="border-b border-slate-100 md:hidden">
           <div className="flex gap-2 overflow-x-auto px-3 py-3">
@@ -471,7 +471,7 @@ export default function CatalogBrowser({
           })}
         </div>
         {/* Десктоп: вертикальный список */}
-        <div className="sticky top-16 hidden md:block">
+        <div className="hidden md:block">
           <div className="border-b border-slate-100 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Группы товаров</p>
           </div>
@@ -532,7 +532,7 @@ export default function CatalogBrowser({
       </aside>
 
       {/* Область товаров */}
-      <div className="flex-1 bg-stone-50 p-3 sm:p-6">
+      <div className="min-w-0 flex-1 self-start bg-stone-50 p-3 sm:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
