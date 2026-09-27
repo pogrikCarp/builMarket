@@ -22,9 +22,34 @@ function formatPrice(value?: number) {
 
 type CatalogSection = "all" | "promo" | "folder";
 
-// Сколько карточек отрисовываем за один "шаг" (первый экран и каждая дозагрузка
-// при прокрутке) - см. renderedCount ниже.
-const CARDS_PER_PAGE = 24;
+const PRODUCTS_PER_PAGE = 50;
+
+type PaginationItem = number | "start-ellipsis" | "end-ellipsis";
+
+function getPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+
+  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+  if (currentPage <= 4) [2, 3, 4, 5].forEach((page) => pages.add(page));
+  if (currentPage >= totalPages - 3) {
+    [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1].forEach((page) => pages.add(page));
+  }
+
+  const sortedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+  const result: PaginationItem[] = [];
+
+  sortedPages.forEach((page, index) => {
+    const previousPage = sortedPages[index - 1];
+    if (previousPage && page - previousPage > 1) {
+      result.push(previousPage === 1 ? "start-ellipsis" : "end-ellipsis");
+    }
+    result.push(page);
+  });
+
+  return result;
+}
 
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 
@@ -45,6 +70,7 @@ type Props = {
   initialOnlyInStock?: boolean;
   initialPriceFrom?: string;
   initialPriceTo?: string;
+  initialPage?: number;
   initialPromoItems?: ResolvedPromoItem[];
 };
 
@@ -61,6 +87,7 @@ function buildCatalogUrl(state: {
   inStock: boolean;
   priceFrom: string;
   priceTo: string;
+  page: number;
 }): string {
   const params = new URLSearchParams();
   const trimmedSearch = state.search.trim();
@@ -77,6 +104,7 @@ function buildCatalogUrl(state: {
   if (state.inStock) params.set("stock", "1");
   if (state.priceFrom) params.set("priceFrom", state.priceFrom);
   if (state.priceTo) params.set("priceTo", state.priceTo);
+  if (state.page > 1) params.set("page", String(state.page));
 
   const query = params.toString();
   return `/catalog${query ? `?${query}` : ""}`;
@@ -92,6 +120,7 @@ export default function CatalogBrowser({
   initialOnlyInStock = false,
   initialPriceFrom = "",
   initialPriceTo = "",
+  initialPage = 1,
   initialPromoItems = [],
 }: Props) {
   const initialFolder = useMemo(
@@ -122,6 +151,14 @@ export default function CatalogBrowser({
   const [priceTo, setPriceTo] = useState(initialPriceTo);
   const [attributeFilters, setAttributeFilters] = useState<Record<string, Set<string>>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [previousInitialPage, setPreviousInitialPage] = useState(initialPage);
+  const catalogTopRef = useRef<HTMLDivElement | null>(null);
+
+  if (initialPage !== previousInitialPage) {
+    setPreviousInitialPage(initialPage);
+    setCurrentPage(initialPage);
+  }
 
   const loadByFolder = useCallback(async (folder: MoyskladProductFolder) => {
     if (abortRef.current) abortRef.current.abort();
@@ -169,6 +206,7 @@ export default function CatalogBrowser({
   }, []);
 
   const handleFolderClick = (folder: MoyskladProductFolder) => {
+    setCurrentPage(1);
     setActiveSection("folder");
     setActiveFolder(folder);
     loadByFolder(folder);
@@ -176,6 +214,7 @@ export default function CatalogBrowser({
 
 
   const handleShowAll = () => {
+    setCurrentPage(1);
     if (abortRef.current) abortRef.current.abort();
     setActiveSection("all");
     setActiveFolder(null);
@@ -187,6 +226,7 @@ export default function CatalogBrowser({
   };
 
   const handleShowPromo = () => {
+    setCurrentPage(1);
     if (abortRef.current) abortRef.current.abort();
     setLoading(false);
     setActiveSection("promo");
@@ -216,6 +256,7 @@ export default function CatalogBrowser({
       inStock: onlyInStock,
       priceFrom,
       priceTo,
+      page: currentPage,
     });
 
     // На самом первом рендере адрес уже соответствует переданным initial*-пропсам —
@@ -230,7 +271,7 @@ export default function CatalogBrowser({
     }, 400);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, router]);
+  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, currentPage, router]);
 
   // Набор характеристик (атрибутов МойСклад) зависит от раздела - при переключении
   // раздела старые выбранные значения могли перестать существовать, поэтому сбрасываем
@@ -257,6 +298,7 @@ export default function CatalogBrowser({
   }, [items]);
 
   const toggleAttributeFilter = (attributeName: string, value: string) => {
+    setCurrentPage(1);
     setAttributeFilters((prev) => {
       const next = { ...prev };
       const current = new Set(next[attributeName] ?? []);
@@ -281,6 +323,7 @@ export default function CatalogBrowser({
     (priceTo ? 1 : 0);
 
   const resetFilters = () => {
+    setCurrentPage(1);
     setAttributeFilters({});
     setOnlyInStock(false);
     setPriceFrom("");
@@ -332,42 +375,32 @@ export default function CatalogBrowser({
     return sorted;
   }, [items, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, attributeFilters]);
 
-  // Показываем карточки порциями и доливаем их по мере прокрутки.
-  //
-  // Фильтры, счётчики и сортировка работают по ВСЕМУ списку раздела (он уже
-  // загружен), но отрисовывать сразу все позиции нельзя: в каталоге больше
-  // шестисот товаров, и разметка всех карточек разом - это несколько мегабайт
-  // HTML, которые браузер вынужден разобрать до первой отрисовки. Раньше этого
-  // не было видно только потому, что МойСклад при expand молча отдавал не
-  // больше сотни позиций, то есть каталог был обрезан.
-  const [renderedCount, setRenderedCount] = useState(CARDS_PER_PAGE);
+  const paginatedItemCount = activeSection === "promo" ? initialPromoItems.length : visibleItems.length;
+  const totalPages = Math.max(1, Math.ceil(paginatedItemCount / PRODUCTS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
 
-  const [previousVisibleItems, setPreviousVisibleItems] = useState(visibleItems);
-  if (visibleItems !== previousVisibleItems) {
-    setPreviousVisibleItems(visibleItems);
-    setRenderedCount(CARDS_PER_PAGE);
+  if (safeCurrentPage !== currentPage) {
+    setCurrentPage(safeCurrentPage);
   }
 
-  const renderedItems = useMemo(() => visibleItems.slice(0, renderedCount), [visibleItems, renderedCount]);
-  const hasMoreToRender = renderedCount < visibleItems.length;
+  const pageStartIndex = (safeCurrentPage - 1) * PRODUCTS_PER_PAGE;
+  const paginatedItems = useMemo(
+    () => visibleItems.slice(pageStartIndex, pageStartIndex + PRODUCTS_PER_PAGE),
+    [visibleItems, pageStartIndex]
+  );
+  const paginatedPromoItems = useMemo(
+    () => initialPromoItems.slice(pageStartIndex, pageStartIndex + PRODUCTS_PER_PAGE),
+    [initialPromoItems, pageStartIndex]
+  );
 
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel || !hasMoreToRender) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setRenderedCount((current) => current + CARDS_PER_PAGE);
-        }
-      },
-      // Догружаем заранее, чтобы прокрутка не упиралась в пустоту.
-      { rootMargin: "600px" }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMoreToRender]);
+  const handlePageChange = (page: number) => {
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
+    if (nextPage === safeCurrentPage) return;
+    setCurrentPage(nextPage);
+    window.requestAnimationFrame(() => {
+      catalogTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   // Рекурсивный список подкатегорий для десктопного сайдбара — раскрыт всегда, поддерживает
   // любую глубину вложенности (в МойСклад встречаются папки на 3 уровня: раздел → категория → подкатегория).
@@ -532,7 +565,7 @@ export default function CatalogBrowser({
       </aside>
 
       {/* Область товаров */}
-      <div className="min-w-0 flex-1 self-start bg-stone-50 p-3 sm:p-6">
+      <div ref={catalogTopRef} className="min-w-0 flex-1 scroll-mt-20 self-start bg-stone-50 p-3 sm:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
@@ -566,14 +599,20 @@ export default function CatalogBrowser({
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => {
+                    setCurrentPage(1);
+                    setSearchQuery(event.target.value);
+                  }}
                   placeholder="Поиск по названию, артикулу..."
                   className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-amber-400"
                 />
               </div>
               <select
                 value={sortOption}
-                onChange={(event) => setSortOption(event.target.value as SortOption)}
+                onChange={(event) => {
+                  setCurrentPage(1);
+                  setSortOption(event.target.value as SortOption);
+                }}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-400"
               >
                 {Object.entries(SORT_LABELS).map(([value, label]) => (
@@ -612,7 +651,10 @@ export default function CatalogBrowser({
                       type="number"
                       min={0}
                       value={priceFrom}
-                      onChange={(event) => setPriceFrom(event.target.value)}
+                      onChange={(event) => {
+                        setCurrentPage(1);
+                        setPriceFrom(event.target.value);
+                      }}
                       placeholder="От"
                       className="w-20 rounded-md border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-amber-400"
                     />
@@ -621,7 +663,10 @@ export default function CatalogBrowser({
                       type="number"
                       min={0}
                       value={priceTo}
-                      onChange={(event) => setPriceTo(event.target.value)}
+                      onChange={(event) => {
+                        setCurrentPage(1);
+                        setPriceTo(event.target.value);
+                      }}
                       placeholder="До"
                       className="w-20 rounded-md border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-amber-400"
                     />
@@ -634,7 +679,10 @@ export default function CatalogBrowser({
                     <input
                       type="checkbox"
                       checked={onlyInStock}
-                      onChange={(event) => setOnlyInStock(event.target.checked)}
+                      onChange={(event) => {
+                        setCurrentPage(1);
+                        setOnlyInStock(event.target.checked);
+                      }}
                       className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
                     />
                     Только в наличии
@@ -681,7 +729,7 @@ export default function CatalogBrowser({
                 <p className="text-sm text-slate-400">Пока нет активных акций</p>
               </div>
             )}
-            {initialPromoItems.map(({ promoId, item, oldPrice, discount }) => {
+            {paginatedPromoItems.map(({ promoId, item, oldPrice, discount }) => {
               const price = item.salePrices?.[0]?.value;
               const galleryUrls = getItemGalleryThumbnailUrls(item);
               return (
@@ -729,7 +777,7 @@ export default function CatalogBrowser({
             )}
 
             <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity duration-200 ${loading ? "opacity-50" : "opacity-100"}`}>
-              {renderedItems.map((item) => {
+              {paginatedItems.map((item) => {
                 const price = item.salePrices?.[0]?.value;
                 const groupLabel = item.groupLabel;
                 const subgroupLabel = item.subgroupLabel;
@@ -788,18 +836,63 @@ export default function CatalogBrowser({
               })}
             </div>
 
-            {hasMoreToRender && (
-              <div ref={loadMoreRef} className="mt-6 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setRenderedCount((current) => current + CARDS_PER_PAGE)}
-                  className="rounded-full border border-slate-300 px-6 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-amber-300 hover:text-amber-600"
-                >
-                  Показать ещё ({visibleItems.length - renderedCount})
-                </button>
-              </div>
-            )}
           </>
+        )}
+
+        {totalPages > 1 && (
+          <nav aria-label="Навигация по страницам каталога" className="mt-8 flex flex-col items-center gap-3">
+            <p className="text-xs text-slate-500">
+              Товары {pageStartIndex + 1}–
+              {Math.min(pageStartIndex + PRODUCTS_PER_PAGE, paginatedItemCount)} из {paginatedItemCount}
+            </p>
+            <div className="flex max-w-full items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(safeCurrentPage - 1)}
+                disabled={safeCurrentPage === 1}
+                aria-label="Предыдущая страница"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span aria-hidden="true">←</span>
+              </button>
+              <div className="hidden items-center gap-2 sm:flex">
+                {getPaginationItems(safeCurrentPage, totalPages).map((item) =>
+                  typeof item === "number" ? (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => handlePageChange(item)}
+                      aria-label={`Страница ${item}`}
+                      aria-current={item === safeCurrentPage ? "page" : undefined}
+                      className={`flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-sm font-semibold transition ${
+                        item === safeCurrentPage
+                          ? "bg-amber-500 text-white shadow-sm"
+                          : "border border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-amber-600"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  ) : (
+                    <span key={item} className="px-1 text-slate-400" aria-hidden="true">
+                      …
+                    </span>
+                  )
+                )}
+              </div>
+              <span className="min-w-28 text-center text-sm font-semibold text-slate-700 sm:hidden">
+                Страница {safeCurrentPage} из {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => handlePageChange(safeCurrentPage + 1)}
+                disabled={safeCurrentPage === totalPages}
+                aria-label="Следующая страница"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </nav>
         )}
       </div>
     </div>

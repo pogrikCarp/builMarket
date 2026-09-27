@@ -15,6 +15,7 @@ type CatalogSearchParams = {
   stock?: string;
   priceFrom?: string;
   priceTo?: string;
+  page?: string;
 };
 
 // Каталог с фильтрами (?q=, ?sort=, ?stock=, ?priceFrom=, ?priceTo=) - это по сути один
@@ -71,6 +72,8 @@ export default async function CatalogPage({
   // Поисковый запрос должен искать по всему каталогу, а не только внутри выбранной папки
   const initialFolderId = initialSearch ? undefined : params?.folder;
   const initialSection = initialSearch ? "all" : params?.section === "promo" ? "promo" : "all";
+  const parsedPage = Number.parseInt(params?.page ?? "1", 10);
+  const initialPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
   const foldersResult = await getCatalogFolders();
   const selectedFolder = initialFolderId
@@ -126,6 +129,7 @@ export default async function CatalogPage({
             initialOnlyInStock={params?.stock === "1"}
             initialPriceFrom={params?.priceFrom}
             initialPriceTo={params?.priceTo}
+            initialPage={initialPage}
             initialPromoItems={initialPromoItems}
           />
         </div>
