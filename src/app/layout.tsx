@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { FavoriteProvider } from "@/components/favorites/FavoriteProvider";
 import JsonLd from "@/components/JsonLd";
-import YandexMetrika from "@/components/YandexMetrika";
+import YandexMetrika, { YANDEX_METRIKA_SCRIPT } from "@/components/YandexMetrika";
 import { SITE_NAME, SITE_URL, buildLocalBusinessJsonLd, buildWebsiteJsonLd } from "@/lib/seo";
 import "./globals.css";
 
@@ -46,6 +47,9 @@ export default function RootLayout({
       className={`${inter.variable} font-[family-name:var(--font-inter)] h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Script id="yandex-metrika" strategy="beforeInteractive">
+          {YANDEX_METRIKA_SCRIPT}
+        </Script>
         <YandexMetrika />
         <JsonLd data={buildLocalBusinessJsonLd()} />
         <JsonLd data={buildWebsiteJsonLd()} />
