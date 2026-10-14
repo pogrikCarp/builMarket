@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { recordCatalogInterest } from "@/lib/catalog-interest-client";
 
 const STORAGE_KEY = "buildmarket-favorites";
 const STORAGE_EVENT = "buildmarket-favorites-change";
@@ -104,6 +105,7 @@ export function FavoriteProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         writeFavoriteItems([...current, item]);
+        recordCatalogInterest(item.id, "FAVORITE");
       },
       removeFavorite: (id) => {
         writeFavoriteItems(readFavoriteItems().filter((item) => item.id !== id));

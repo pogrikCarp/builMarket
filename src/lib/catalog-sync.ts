@@ -469,6 +469,11 @@ export async function runCatalogSync(options: {
       itemCount = result.itemCount;
       imageCount = result.imageCount;
       removedImageCount = result.removedImageCount;
+      // Для рейтинга нужны последние 90 дней. Ночной синк удаляет только старые
+      // анонимные сигналы этого модуля (180+ дней), чтобы не копить их бессрочно.
+      await prisma.catalogInterestEvent.deleteMany({
+        where: { day: { lt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) } },
+      });
     } else if (mode === "stock") {
       const result = await syncStock(runStartedAt);
       itemCount = result.itemCount;

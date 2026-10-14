@@ -13,7 +13,7 @@ import ProductCardMedia from "@/components/catalog/ProductCardMedia";
 import {
   CATALOG_SORT_LABELS as SORT_LABELS,
   DEFAULT_CATALOG_SORT,
-  compareCatalogItems,
+  sortCatalogItems,
   isCatalogSortOption as isSortOption,
   type CatalogSortOption as SortOption,
 } from "@/lib/catalog-sort";
@@ -137,7 +137,18 @@ export default function CatalogBrowser({
   const [allItems, setAllItems] = useState<CatalogListItem[]>(initialFolder ? [] : initialItems);
   const [items, setItems] = useState<CatalogListItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
+  const [previousInitialItems, setPreviousInitialItems] = useState(initialItems);
   const abortRef = useRef<AbortController | null>(null);
+
+  // При возвращении/переходе Next.js передаёт свежий локальный рейтинг. Принимаем
+  // его, сохраняя выбранные фильтры и страницу; данные чужого раздела не подмешиваем.
+  if (initialItems !== previousInitialItems) {
+    setPreviousInitialItems(initialItems);
+    if (!loading && activeSection !== "promo" && initialFolder?.id === activeFolder?.id) {
+      setItems(initialItems);
+      if (!initialFolder) setAllItems(initialItems);
+    }
+  }
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [sortOption, setSortOption] = useState<SortOption>(isSortOption(initialSort) ? initialSort : DEFAULT_CATALOG_SORT);
@@ -268,13 +279,12 @@ export default function CatalogBrowser({
     return () => window.clearTimeout(timeoutId);
   }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, currentPage, router]);
 
-  // Набор характеристик (атрибутов МойСклад) зависит от раздела - при переключении
-  // раздела старые выбранные значения могли перестать существовать, поэтому сбрасываем
-  // их прямо во время рендера, как только видим новый массив items (см. "Adjusting
-  // state when a prop changes" в документации React).
-  const [previousItemsForFilters, setPreviousItemsForFilters] = useState(items);
-  if (items !== previousItemsForFilters) {
-    setPreviousItemsForFilters(items);
+  // Фильтры характеристик сбрасываем только при смене раздела, а не при
+  // обновлении статистики/цен того же списка или смене страницы.
+  const filterContext = `${activeSection}:${activeFolder?.id ?? ""}`;
+  const [previousFilterContext, setPreviousFilterContext] = useState(filterContext);
+  if (filterContext !== previousFilterContext) {
+    setPreviousFilterContext(filterContext);
     setAttributeFilters({});
   }
 
@@ -353,7 +363,7 @@ export default function CatalogBrowser({
       return true;
     });
 
-    const sorted = [...filtered].sort((a, b) => compareCatalogItems(a, b, sortOption));
+    const sorted = sortCatalogItems(filtered, sortOption);
 
     return sorted;
   }, [items, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, attributeFilters]);

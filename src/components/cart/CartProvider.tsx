@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { recordCatalogInterest } from "@/lib/catalog-interest-client";
 
 const STORAGE_KEY = "buildmarket-cart";
 const STORAGE_EVENT = "buildmarket-cart-change";
@@ -144,6 +145,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           ]);
         }
         setToast({ key: Date.now(), name: item.name });
+        recordCatalogInterest(item.id, "CART");
       },
       removeItem: (id) => {
         writeCartItems(readCartItems().filter((item) => item.id !== id));

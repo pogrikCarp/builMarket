@@ -267,9 +267,26 @@ model CatalogProduct {
   searchText  String    @db.Text
   syncedAt    DateTime  @default(now())
 
+  interests CatalogInterestEvent[]
+
   @@index([folderId])
   @@index([archived])
   @@index([name])
+}
+
+// Один сигнал одного анонимного посетителя на товар за сутки. Содержит только
+// HMAC-идентификатор посетителя, без IP-адресов, имён и контактных данных.
+model CatalogInterestEvent {
+  id          String   @id @default(cuid())
+  productId   String
+  visitorHash String
+  kind        String // VIEW | CART | FAVORITE
+  day         DateTime @db.Date
+  createdAt   DateTime @default(now())
+  product     CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, visitorHash, kind, day])
+  @@index([day, productId])
 }
 
 enum CatalogSyncStatus {

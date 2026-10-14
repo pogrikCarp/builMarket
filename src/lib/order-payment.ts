@@ -2,6 +2,7 @@ import type { Order } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getYookassaPayment, isYookassaConfigured } from "@/lib/yookassa";
 import { sendOrderPaidNotification } from "@/lib/order-notify";
+import { invalidateCatalogPopularity } from "@/lib/catalog-popularity";
 
 /**
  * Сверяет статус заказа с реальным статусом платежа в ЮKassa и обновляет БД,
@@ -39,6 +40,7 @@ export async function syncYookassaOrderStatus(order: Order): Promise<Order> {
         paidAt: order.paidAt ?? new Date(),
       },
     });
+    invalidateCatalogPopularity();
     // Не блокируем ни вебхук, ни опрос статуса заказом покупателем ожиданием отправки письма.
     void sendOrderPaidNotification(updated);
     return updated;

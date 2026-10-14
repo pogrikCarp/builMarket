@@ -5,6 +5,7 @@ import { cache } from "react";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductGallery from "@/components/ProductGallery";
+import ProductInterestTracker from "@/components/catalog/ProductInterestTracker";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/JsonLd";
@@ -90,6 +91,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
+      <ProductInterestTracker productId={id} />
       <JsonLd
         data={buildProductJsonLd({
           id,
