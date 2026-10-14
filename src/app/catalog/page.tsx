@@ -18,10 +18,13 @@ type CatalogSearchParams = {
   page?: string;
 };
 
-// Каталог с фильтрами (?q=, ?sort=, ?stock=, ?priceFrom=, ?priceTo=) - это по сути один
-// и тот же список товаров в разных представлениях, поэтому canonical всегда указывает
-// на "чистый" адрес раздела (только /catalog или /catalog?folder=ID) без служебных
-// параметров - это предотвращает индексацию дублей одной и той же выдачи.
+function getPageNumber(value?: string): number {
+  const page = Number(value ?? "1");
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
+}
+
+// У каждой страницы списка свой canonical: иначе поисковик считает страницы
+// 2, 3... дублями первой. Поиск и варианты фильтрации не индексируем.
 export async function generateMetadata({
   searchParams,
 }: {
@@ -29,6 +32,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const params = (await searchParams) ?? {};
   const search = params.q?.trim();
+  const page = getPageNumber(params.page);
+  const pageSuffix = page > 1 ? ` — страница ${page}` : "";
+  const canonicalParams = new URLSearchParams();
+  if (params.folder) canonicalParams.set("folder", params.folder);
+  else if (params.section === "promo") canonicalParams.set("section", "promo");
+  if (page > 1) canonicalParams.set("page", String(page));
+  const canonicalPath = `/catalog${canonicalParams.size ? `?${canonicalParams}` : ""}`;
+  const noindex = Boolean(
+    (params.sort && params.sort !== "popular") || params.stock || params.priceFrom || params.priceTo
+  );
 
   if (search) {
     return buildMetadata({
@@ -45,9 +58,10 @@ export async function generateMetadata({
       const folder = folders.rows.find((item) => item.id === params.folder);
       if (folder) {
         return buildMetadata({
-          title: folder.name,
+          title: `${folder.name}${pageSuffix}`,
           description: `${folder.name} — купить в ДомСтрой с доставкой по Москве и Московской области. Актуальные цены и наличие.`,
-          path: `/catalog?folder=${folder.id}`,
+          path: canonicalPath,
+          noindex,
         });
       }
     } catch {
@@ -56,9 +70,10 @@ export async function generateMetadata({
   }
 
   return buildMetadata({
-    title: "Каталог товаров",
+    title: `${params.section === "promo" ? "Акции" : "Каталог товаров"}${pageSuffix}`,
     description: "Каталог строительных и отделочных материалов, электроинструментов и наборов ДомСтрой с фильтрами по цене, наличию и категориям.",
-    path: "/catalog",
+    path: canonicalPath,
+    noindex,
   });
 }
 
@@ -72,8 +87,7 @@ export default async function CatalogPage({
   // Поисковый запрос должен искать по всему каталогу, а не только внутри выбранной папки
   const initialFolderId = initialSearch ? undefined : params?.folder;
   const initialSection = initialSearch ? "all" : params?.section === "promo" ? "promo" : "all";
-  const parsedPage = Number.parseInt(params?.page ?? "1", 10);
-  const initialPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const initialPage = getPageNumber(params?.page);
 
   const foldersResult = await getCatalogFolders();
   const selectedFolder = initialFolderId

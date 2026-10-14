@@ -157,6 +157,7 @@ export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]) {
 
 export type ProductJsonLdInput = {
   id: string;
+  sku?: string;
   name: string;
   description?: string;
   images: string[];
@@ -173,6 +174,7 @@ export function buildProductJsonLd(input: ProductJsonLdInput) {
     "@context": "https://schema.org",
     "@type": "Product",
     name: input.name,
+    sku: input.sku ?? input.id,
     description: input.description,
     image: input.images.map((src) => absoluteUrl(src)),
     url,

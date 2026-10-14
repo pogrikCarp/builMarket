@@ -161,7 +161,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 return (
                   <Link
                     key={item.id}
-                    href={`/catalog/${item.id}?type=${item.meta.type}`}
+                    href={`/catalog/${item.id}`}
                     prefetch={false}
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >

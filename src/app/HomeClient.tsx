@@ -834,7 +834,7 @@ export default function HomeClient() {
                   return (
                     <Link
                       key={promoId}
-                      href={`/catalog/${item.id}?type=${item.meta.type}`}
+                      href={`/catalog/${item.id}`}
                       prefetch={false}
                       className="premium-card flex flex-col rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:-translate-y-1"
                     >

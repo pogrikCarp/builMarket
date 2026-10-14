@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductGallery from "@/components/ProductGallery";
@@ -25,11 +26,13 @@ type ProductPageProps = {
   params: Promise<{ id: string }>;
 };
 
+const getProduct = cache(getCatalogProduct);
+
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params;
 
   try {
-    const item = await getCatalogProduct(id);
+    const item = await getProduct(id);
     if (!item?.name) throw new Error("Товар не найден");
 
     const images = getItemGalleryUrls(item);
@@ -60,7 +63,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // 10 минут, а перед покупкой он всё равно перепроверяется живым запросом в
   // МойСклад при финальном оформлении заказа - так что продать отсутствующий
   // товар это не даёт, зато просмотр карточки больше не стоит запроса к API.
-  const item = await getCatalogProduct(id);
+  const item = await getProduct(id);
 
   if (!item || !item.name) {
     notFound();
@@ -90,6 +93,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <JsonLd
         data={buildProductJsonLd({
           id,
+          sku: item.article ?? item.code ?? id,
           name: item.name,
           description: item.description,
           images,

@@ -1,14 +1,13 @@
 import type { MetadataRoute } from "next";
-import { getCatalogFolders, getCatalogProductIds } from "@/lib/catalog-db";
+import { getCatalogFolders, getCatalogSitemapProducts } from "@/lib/catalog-db";
 import { LOOKBOOKS } from "@/lib/lookbooks";
 import { BRANDS } from "@/lib/brands";
-import { SITE_URL } from "@/lib/seo";
+import { SITE_URL, absoluteUrl } from "@/lib/seo";
 
 // Карта сайта строится из локального зеркала каталога (src/lib/catalog-db.ts),
-// поэтому её генерация больше не зависит от доступности МойСклад. Кэш на час
-// оставляем: sitemap.xml не обязан обновляться поминутно, а роботы поисковиков
-// запрашивают его регулярно.
-export const revalidate = 3600;
+// поэтому новые товары сразу попадают в карту сайта без запросов к МойСклад.
+// При сбое БД возвращается ошибка, а не успешная пустая карта вместо товаров.
+export const dynamic = "force-dynamic";
 
 type ChangeFrequency = MetadataRoute.Sitemap[number]["changeFrequency"];
 
@@ -38,11 +37,13 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: ChangeFr
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
+  const [folders, products] = await Promise.all([
+    getCatalogFolders(),
+    getCatalogSitemapProducts(),
+  ]);
 
   const entries: MetadataRoute.Sitemap = STATIC_ROUTES.map((route) => ({
     url: `${SITE_URL}${route.path}`,
-    lastModified: now,
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
@@ -50,7 +51,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   entries.push(
     ...LOOKBOOKS.map((lookbook) => ({
       url: `${SITE_URL}/lookbooks/${lookbook.slug}`,
-      lastModified: now,
       changeFrequency: "monthly" as ChangeFrequency,
       priority: 0.5,
     }))
@@ -59,41 +59,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   entries.push(
     ...BRANDS.map((brand) => ({
       url: `${SITE_URL}/brands/${brand.slug}`,
-      lastModified: now,
       changeFrequency: "monthly" as ChangeFrequency,
       priority: 0.5,
     }))
   );
 
-  // Зеркало каталога может быть ещё пустым (самый первый деплой) - в этом случае
-  // отдаём карту сайта хотя бы со статическими страницами, не роняя всю генерацию.
-  try {
-    const folders = await getCatalogFolders();
-    entries.push(
-      ...folders.rows.map((folder) => ({
-        url: `${SITE_URL}/catalog?folder=${folder.id}`,
-        lastModified: now,
-        changeFrequency: "daily" as ChangeFrequency,
-        priority: 0.7,
-      }))
-    );
-  } catch {
-    // намеренно игнорируем - см. комментарий выше
-  }
+  entries.push(
+    ...folders.rows.map((folder) => ({
+      url: `${SITE_URL}/catalog?folder=${folder.id}`,
+      changeFrequency: "daily" as ChangeFrequency,
+      priority: 0.7,
+    }))
+  );
 
-  try {
-    const ids = await getCatalogProductIds();
-    entries.push(
-      ...ids.map((id) => ({
-        url: `${SITE_URL}/catalog/${id}`,
-        lastModified: now,
-        changeFrequency: "weekly" as ChangeFrequency,
-        priority: 0.6,
-      }))
-    );
-  } catch {
-    // намеренно игнорируем - см. комментарий выше
-  }
+  entries.push(
+    ...products.map((product) => ({
+      url: `${SITE_URL}/catalog/${product.id}`,
+      lastModified: product.lastModified,
+      images: product.images.map(absoluteUrl),
+      changeFrequency: "weekly" as ChangeFrequency,
+      priority: 0.6,
+    }))
+  );
 
   return entries;
 }

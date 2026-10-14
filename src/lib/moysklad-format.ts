@@ -135,6 +135,7 @@ export type CatalogListItem = {
   subgroupLabel?: string;
   galleryThumbnails: string[];
   attributes: { name: string; value: string }[];
+  popularity?: { purchases: number; favorites: number };
 };
 
 export function toCatalogListItem(item: MoyskladAssortmentItem): CatalogListItem {

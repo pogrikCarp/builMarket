@@ -10,6 +10,13 @@ import { getItemGalleryThumbnailUrls, type CatalogListItem } from "@/lib/moyskla
 import { buildFolderTree, getFolderPath } from "@/lib/folder-tree";
 import type { ResolvedPromoItem } from "@/lib/promo";
 import ProductCardMedia from "@/components/catalog/ProductCardMedia";
+import {
+  CATALOG_SORT_LABELS as SORT_LABELS,
+  DEFAULT_CATALOG_SORT,
+  compareCatalogItems,
+  isCatalogSortOption as isSortOption,
+  type CatalogSortOption as SortOption,
+} from "@/lib/catalog-sort";
 
 function formatPrice(value?: number) {
   if (value == null) return null;
@@ -51,15 +58,6 @@ function getPaginationItems(currentPage: number, totalPages: number): Pagination
   return result;
 }
 
-type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
-
-const SORT_LABELS: Record<SortOption, string> = {
-  "name-asc": "По алфавиту (А-Я)",
-  "name-desc": "По алфавиту (Я-А)",
-  "price-asc": "По цене (сначала дешевле)",
-  "price-desc": "По цене (сначала дороже)",
-};
-
 type Props = {
   folders: MoyskladProductFolder[];
   initialItems: CatalogListItem[];
@@ -73,9 +71,6 @@ type Props = {
   initialPage?: number;
   initialPromoItems?: ResolvedPromoItem[];
 };
-
-const isSortOption = (value?: string): value is SortOption =>
-  value === "name-asc" || value === "name-desc" || value === "price-asc" || value === "price-desc";
 
 // Формирует адрес /catalog с параметрами текущего просмотра (раздел, поиск, сортировка, фильтры),
 // чтобы кнопка "назад" браузера после открытия карточки товара возвращала туда же, откуда ушли.
@@ -100,7 +95,7 @@ function buildCatalogUrl(state: {
     params.set("folder", state.folderId);
   }
 
-  if (state.sort !== "name-asc") params.set("sort", state.sort);
+  if (state.sort !== DEFAULT_CATALOG_SORT) params.set("sort", state.sort);
   if (state.inStock) params.set("stock", "1");
   if (state.priceFrom) params.set("priceFrom", state.priceFrom);
   if (state.priceTo) params.set("priceTo", state.priceTo);
@@ -145,7 +140,7 @@ export default function CatalogBrowser({
   const abortRef = useRef<AbortController | null>(null);
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
-  const [sortOption, setSortOption] = useState<SortOption>(isSortOption(initialSort) ? initialSort : "name-asc");
+  const [sortOption, setSortOption] = useState<SortOption>(isSortOption(initialSort) ? initialSort : DEFAULT_CATALOG_SORT);
   const [onlyInStock, setOnlyInStock] = useState(initialOnlyInStock);
   const [priceFrom, setPriceFrom] = useState(initialPriceFrom);
   const [priceTo, setPriceTo] = useState(initialPriceTo);
@@ -358,19 +353,7 @@ export default function CatalogBrowser({
       return true;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
-      switch (sortOption) {
-        case "name-desc":
-          return b.name.localeCompare(a.name, "ru");
-        case "price-asc":
-          return (a.salePrices?.[0]?.value ?? Infinity) - (b.salePrices?.[0]?.value ?? Infinity);
-        case "price-desc":
-          return (b.salePrices?.[0]?.value ?? -Infinity) - (a.salePrices?.[0]?.value ?? -Infinity);
-        case "name-asc":
-        default:
-          return a.name.localeCompare(b.name, "ru");
-      }
-    });
+    const sorted = [...filtered].sort((a, b) => compareCatalogItems(a, b, sortOption));
 
     return sorted;
   }, [items, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, attributeFilters]);
@@ -401,6 +384,17 @@ export default function CatalogBrowser({
       catalogTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   };
+
+  const getPageUrl = (page: number) => buildCatalogUrl({
+    section: activeSection,
+    folderId: activeFolder?.id ?? null,
+    search: searchQuery,
+    sort: sortOption,
+    inStock: onlyInStock,
+    priceFrom,
+    priceTo,
+    page,
+  });
 
   // Рекурсивный список подкатегорий для десктопного сайдбара — раскрыт всегда, поддерживает
   // любую глубину вложенности (в МойСклад встречаются папки на 3 уровня: раздел → категория → подкатегория).
@@ -735,7 +729,7 @@ export default function CatalogBrowser({
               return (
                 <Link
                   key={promoId}
-                  href={`/catalog/${item.id}?type=${item.meta.type}`}
+                  href={`/catalog/${item.id}`}
                   prefetch={false}
                   className="flex flex-col justify-between overflow-hidden rounded-xl border border-amber-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
@@ -785,7 +779,7 @@ export default function CatalogBrowser({
                 return (
                   <Link
                     key={item.id}
-                    href={`/catalog/${item.id}?type=${item.type}`}
+                    href={`/catalog/${item.id}`}
                     // В каталоге одновременно видно/рядом много карточек - без prefetch={false}
                     // Next.js тихо предзагружал бы карточку товара (и, соответственно, запрос
                     // к МойСклад) для каждой из них, что и приводило к перегрузке лимита API.
@@ -846,22 +840,36 @@ export default function CatalogBrowser({
               {Math.min(pageStartIndex + PRODUCTS_PER_PAGE, paginatedItemCount)} из {paginatedItemCount}
             </p>
             <div className="flex max-w-full items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => handlePageChange(safeCurrentPage - 1)}
-                disabled={safeCurrentPage === 1}
-                aria-label="Предыдущая страница"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <span aria-hidden="true">←</span>
-              </button>
+              {safeCurrentPage === 1 ? (
+                <span aria-label="Предыдущая страница" aria-disabled="true" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-40">
+                  <span aria-hidden="true">←</span>
+                </span>
+              ) : (
+                <Link
+                  href={getPageUrl(safeCurrentPage - 1)}
+                  prefetch={false}
+                  rel="prev"
+                  onNavigate={(event) => {
+                    event.preventDefault();
+                    handlePageChange(safeCurrentPage - 1);
+                  }}
+                  aria-label="Предыдущая страница"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600"
+                >
+                  <span aria-hidden="true">←</span>
+                </Link>
+              )}
               <div className="hidden items-center gap-2 sm:flex">
                 {getPaginationItems(safeCurrentPage, totalPages).map((item) =>
                   typeof item === "number" ? (
-                    <button
+                    <Link
                       key={item}
-                      type="button"
-                      onClick={() => handlePageChange(item)}
+                      href={getPageUrl(item)}
+                      prefetch={false}
+                      onNavigate={(event) => {
+                        event.preventDefault();
+                        handlePageChange(item);
+                      }}
                       aria-label={`Страница ${item}`}
                       aria-current={item === safeCurrentPage ? "page" : undefined}
                       className={`flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-sm font-semibold transition ${
@@ -871,7 +879,7 @@ export default function CatalogBrowser({
                       }`}
                     >
                       {item}
-                    </button>
+                    </Link>
                   ) : (
                     <span key={item} className="px-1 text-slate-400" aria-hidden="true">
                       …
@@ -882,15 +890,25 @@ export default function CatalogBrowser({
               <span className="min-w-28 text-center text-sm font-semibold text-slate-700 sm:hidden">
                 Страница {safeCurrentPage} из {totalPages}
               </span>
-              <button
-                type="button"
-                onClick={() => handlePageChange(safeCurrentPage + 1)}
-                disabled={safeCurrentPage === totalPages}
-                aria-label="Следующая страница"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <span aria-hidden="true">→</span>
-              </button>
+              {safeCurrentPage === totalPages ? (
+                <span aria-label="Следующая страница" aria-disabled="true" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-40">
+                  <span aria-hidden="true">→</span>
+                </span>
+              ) : (
+                <Link
+                  href={getPageUrl(safeCurrentPage + 1)}
+                  prefetch={false}
+                  rel="next"
+                  onNavigate={(event) => {
+                    event.preventDefault();
+                    handlePageChange(safeCurrentPage + 1);
+                  }}
+                  aria-label="Следующая страница"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600"
+                >
+                  <span aria-hidden="true">→</span>
+                </Link>
+              )}
             </div>
           </nav>
         )}

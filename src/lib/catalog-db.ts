@@ -12,6 +12,7 @@
 // только фоновый синхронизатор (catalog-sync.ts).
 import type { CatalogProduct } from "@prisma/client";
 import { prisma } from "./prisma";
+import { getCatalogPopularity } from "./catalog-popularity";
 import type { StoredProductImage } from "./catalog-images";
 import {
   type MoyskladAssortmentItem,
@@ -288,8 +289,16 @@ async function queryMirrorFull(query: CatalogQuery) {
 export async function getCatalogList(
   query: CatalogQuery
 ): Promise<{ rows: CatalogListItem[]; total: number; limit: number; offset: number }> {
-  const { rows, total, limit, offset } = await queryMirrorList(query);
-  return { rows: rows.map(toListItem), total, limit, offset };
+  const [{ rows, total, limit, offset }, popularity] = await Promise.all([
+    queryMirrorList(query),
+    getCatalogPopularity(),
+  ]);
+  return {
+    rows: rows.map((row) => ({ ...toListItem(row), popularity: popularity.get(row.id) })),
+    total,
+    limit,
+    offset,
+  };
 }
 
 /**
@@ -318,12 +327,15 @@ export async function getCatalogItemsByIds(ids: string[]): Promise<Map<string, M
   return new Map(rows.map((row) => [row.id, toAssortmentItem(row)]));
 }
 
-export async function getCatalogProductIds(maxItems = 5000): Promise<string[]> {
+export async function getCatalogSitemapProducts() {
   const rows = await prisma.catalogProduct.findMany({
     where: { archived: false },
-    select: { id: true },
-    take: maxItems,
-    orderBy: { name: "asc" },
+    select: { id: true, msUpdatedAt: true, images: true },
+    orderBy: { id: "asc" },
   });
-  return rows.map((row) => row.id);
+  return rows.map((row) => ({
+    id: row.id,
+    lastModified: row.msUpdatedAt ?? undefined,
+    images: imageUrls(parseImages(row.images)).full,
+  }));
 }
