@@ -3,7 +3,7 @@
 import Image from "next/image";
 import MediaImage from "@/components/MediaImage";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import CallbackModal from "@/components/CallbackModal";
@@ -313,6 +313,7 @@ const CONTENT_CONTAINER = "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8";
 
 const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [imageInfo, setImageInfo] = useState<Record<string, { aspectRatio: number; usesDefault: boolean }>>({});
   const [containerWidth, setContainerWidth] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -321,6 +322,8 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
   const touchStartYRef = useRef(0);
   const isSwipeRef = useRef(false);
   const activeSlide = slides[activeIndex] ?? slides[0];
+  const activeImageInfo = imageInfo[activeSlide.image];
+  const isCustomArtwork = activeSlide.image !== HERO_IMAGES[activeIndex] && !activeImageInfo?.usesDefault;
 
   const goPrev = () => setActiveIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   const goNext = () => setActiveIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
@@ -376,10 +379,10 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
     "absolute top-1/2 z-30 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-sm border border-white/40 bg-black/40 text-white text-lg opacity-0 transition-opacity duration-300 sm:flex sm:group-hover:opacity-100";
 
   return (
-    <section className="relative w-full overflow-hidden">
+    <section aria-label="Главные предложения" className={`hero-carousel relative w-full overflow-hidden${isCustomArtwork ? " hero-carousel--artwork" : ""}`} style={{ "--hero-mobile-aspect": activeImageInfo?.aspectRatio ?? 8 / 3 } as CSSProperties}>
       <div
         ref={containerRef}
-        className="group relative h-[320px] w-full touch-pan-y select-none overflow-hidden bg-slate-900 sm:h-[420px] md:h-[520px] lg:h-[600px]"
+        className="hero-carousel__viewport group relative h-[320px] w-full touch-pan-y select-none overflow-hidden bg-slate-900 sm:h-[420px] md:h-[520px] lg:h-[600px]"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -402,12 +405,20 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
                 quality={100}
                 sizes="100vw"
                 draggable={false}
-                className="object-cover"
+                className={slide.image !== HERO_IMAGES[idx] && !imageInfo[slide.image]?.usesDefault ? "object-contain sm:object-cover" : "object-cover"}
+                onLoad={({ currentTarget: image }) => {
+                  if (!image.naturalWidth || !image.naturalHeight) return;
+                  const aspectRatio = image.naturalWidth / image.naturalHeight;
+                  setImageInfo((current) => current[slide.image]?.aspectRatio === aspectRatio
+                    ? current : { ...current, [slide.image]: { aspectRatio, usesDefault: current[slide.image]?.usesDefault ?? slide.image === HERO_IMAGES[idx] } });
+                }}
+                onFallback={() => setImageInfo((current) => current[slide.image]?.usesDefault
+                  ? current : { ...current, [slide.image]: { aspectRatio: current[slide.image]?.aspectRatio ?? 8 / 3, usesDefault: true } })}
               />
             </div>
           ))}
         </div>
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
+        <div className="hero-carousel__shade pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
 
         <button type="button" onClick={goPrev} className={`${arrowButtonBase} sm:-left-12 sm:group-hover:left-4 md:group-hover:left-6`} aria-label="Предыдущий слайд">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
@@ -416,7 +427,7 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
         </button>
 
-        <div className="pointer-events-none absolute inset-0">
+        <div className="hero-carousel__content pointer-events-none absolute inset-0">
           <div className="mx-auto flex h-full w-full max-w-7xl items-center px-4">
             <div className="flex flex-1 flex-col items-start justify-end pb-8 text-white md:items-center md:justify-center md:pl-[42%] md:text-center md:pb-0 lg:pl-[48%] xl:pl-[52%]">
               <div key={`cap-${activeIndex}`} className="fade-in-up">
@@ -451,18 +462,19 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
           </div>
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-6 z-30 flex justify-center gap-2">
+      <div className="hero-carousel__pagination absolute inset-x-0 bottom-6 z-30 flex justify-center gap-2">
         {slides.map((slide, idx) => (
           <button
             key={slide.id}
             type="button"
             onClick={() => setActiveIndex(idx)}
-            className={`rounded-full transition-all duration-300 ${
+            className={`hero-carousel__dot rounded-full transition-all duration-300 ${
               idx === activeIndex
                 ? "h-3 w-3 bg-white"
                 : "h-2.5 w-2.5 bg-white/40 hover:bg-white/70"
             }`}
             aria-label={`Показать слайд ${idx + 1}`}
+            aria-current={idx === activeIndex ? "true" : undefined}
           />
         ))}
       </div>

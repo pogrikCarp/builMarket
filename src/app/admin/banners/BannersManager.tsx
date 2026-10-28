@@ -17,7 +17,7 @@ type Banner = {
 
 type Slot = { type: MediaType; sortOrder: number; title: string; image?: string };
 const SECTIONS: { type: MediaType; title: string; description: string }[] = [
-  { type: "HERO", title: "Главный баннер", description: "Четыре слайда главного баннера, слева направо." },
+  { type: "HERO", title: "Главный баннер", description: "Четыре слайда главного баннера, слева направо. На телефоне загруженное изображение показывается целиком, без стандартных надписей поверх него." },
   { type: "LOOKBOOK", title: "Карточки наборов", description: "Четыре карточки наборов на главной странице." },
   { type: "CERTIFICATE", title: "Сертификаты", description: "Сертификаты на главной и странице сертификатов." },
   { type: "BRAND", title: "Бренды", description: "Логотипы на главной и странице брендов." },

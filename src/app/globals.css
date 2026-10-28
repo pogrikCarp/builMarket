@@ -137,7 +137,6 @@ body {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   max-width: 140px;
   min-height: 36px;
   padding: 9px 12px;
@@ -152,8 +151,17 @@ body {
   overflow-wrap: anywhere;
   transition: filter 160ms ease, box-shadow 160ms ease;
 }
-.campaign__button > span { flex-shrink: 0; font-size: 16px; font-weight: 400; line-height: 1; }
 .campaign__button:hover { filter: brightness(.95); box-shadow: 0 3px 12px rgb(74 67 47 / 12%); }
+
+/* Uploaded artwork already contains its own composition and text. On phones,
+   show the whole image at its original ratio, with controls beneath it. */
+@media (width < 640px) {
+  .hero-carousel--artwork .hero-carousel__viewport { height: auto; aspect-ratio: var(--hero-mobile-aspect, 8 / 3); background: #f6f3ee; }
+  .hero-carousel--artwork :is(.hero-carousel__shade, .hero-carousel__content) { display: none; }
+  .hero-carousel--artwork .hero-carousel__pagination { position: static; min-height: 32px; align-items: center; background: #f6f3ee; }
+  .hero-carousel--artwork .hero-carousel__dot { background: #c7c1b7; }
+  .hero-carousel--artwork .hero-carousel__dot[aria-current="true"] { background: #b87919; }
+}
 
 .theme-card__art { position: relative; height: 142px; overflow: hidden; margin-bottom: 12px; border: 1px solid #eee9df; border-radius: 10px; background: #fffdf9; }
 .theme-card__art img { object-fit: cover; }

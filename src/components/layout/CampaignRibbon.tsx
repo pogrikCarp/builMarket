@@ -21,7 +21,7 @@ export default function CampaignRibbon({ campaign, hasPromos, preview = false }:
   return <div className="campaign" data-header-campaign={campaign.theme}>
     <CampaignIdentity campaign={campaign} />
     {hasPromos && (preview
-      ? <span className="campaign__button">{theme.buttonLabel}<span aria-hidden="true">↗</span></span>
-      : <Link href="/catalog?section=promo" prefetch={false} className="campaign__button" aria-label={`${theme.buttonLabel} — товары по акции`}>{theme.buttonLabel}<span aria-hidden="true">↗</span></Link>)}
+      ? <span className="campaign__button">{theme.buttonLabel}</span>
+      : <Link href="/catalog?section=promo" prefetch={false} className="campaign__button" aria-label={`${theme.buttonLabel} — товары по акции`}>{theme.buttonLabel}</Link>)}
   </div>;
 }
