@@ -1,8 +1,8 @@
 export const HEADER_THEMES = [
-  { key: "sale-1111", name: "11.11 — большая распродажа", image: "/stickers/sale-1111.svg", caption: "Время выгодных покупок", buttonLabel: "Поймать скидки", background: "#fff7e6", color: "#92400e", buttonColor: "#b45309" },
-  { key: "new-year", name: "Новогодние акции", image: "/stickers/new-year.svg", caption: "Подарки для дома и тех, кто его строит", buttonLabel: "За подарками", background: "#eef7f2", color: "#14532d", buttonColor: "#166534" },
-  { key: "black-friday", name: "Чёрная пятница", image: "/stickers/black-friday.svg", caption: "Большие планы — выгодные покупки", buttonLabel: "Забрать выгодно", background: "#f3effc", color: "#4c1d95", buttonColor: "#6d28d9" },
-  { key: "spring", name: "Весенние акции", image: "/stickers/spring.svg", caption: "Обновляем дом, встречаем весну", buttonLabel: "Навстречу скидкам", background: "#f3f8e9", color: "#365314", buttonColor: "#3f6212" },
+  { key: "sale-1111", name: "11.11 — большая распродажа", title: "11.11", eyebrow: "Большая распродажа", image: "/header-themes/sale-1111.webp", caption: "Время выгодных решений", buttonLabel: "Поймать скидки", accent: "#edbd78", background: "#141414", color: "#faf6ef", buttonColor: "#edbd78" },
+  { key: "new-year", name: "Новогодние акции", title: "Новогодние акции", eyebrow: "Тепло начинается с дома", image: "/header-themes/new-year.webp", caption: "Подарки для дома и тех, кто его строит", buttonLabel: "За подарками", accent: "#dec694", background: "#111817", color: "#faf6ef", buttonColor: "#dec694" },
+  { key: "black-friday", name: "Чёрная пятница", title: "Чёрная пятница", eyebrow: "Время выбирать лучшее", image: "/header-themes/black-friday.webp", caption: "Большие планы — выгодные покупки", buttonLabel: "Забрать выгодно", accent: "#e0b075", background: "#101113", color: "#faf6ef", buttonColor: "#e0b075" },
+  { key: "spring", name: "Весенние акции", title: "Сезон обновлений", eyebrow: "Весенние акции", image: "/header-themes/spring.webp", caption: "Новые идеи для вашего дома", buttonLabel: "Навстречу скидкам", accent: "#c6ce9d", background: "#141916", color: "#faf6ef", buttonColor: "#c6ce9d" },
 ] as const;
 
 export type HeaderThemeKey = "none" | "custom" | (typeof HEADER_THEMES)[number]["key"];
@@ -23,7 +23,7 @@ export function resolveHeaderTheme(campaign: HeaderCampaign) {
   if (campaign.theme === "none") return null;
   if (campaign.theme === "custom") {
     if (!campaign.customImage) return null;
-    return { name: campaign.customTitle, image: campaign.customImage, caption: "Выгодные предложения для ваших планов", buttonLabel: campaign.buttonLabel || "Смотреть акции", background: "#fff7e6", color: "#92400e", buttonColor: "#b45309" };
+    return { name: campaign.customTitle, title: campaign.customTitle, eyebrow: "Специальные предложения", image: campaign.customImage, caption: "Выгодные предложения для ваших планов", buttonLabel: campaign.buttonLabel || "Смотреть акции", accent: "#edbd78", background: "#141414", color: "#faf6ef", buttonColor: "#edbd78" };
   }
   const theme = HEADER_THEMES.find((item) => item.key === campaign.theme);
   return theme ? { ...theme, buttonLabel: campaign.buttonLabel || theme.buttonLabel } : null;

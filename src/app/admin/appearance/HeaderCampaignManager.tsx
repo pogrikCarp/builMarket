@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import CampaignRibbon from "@/components/layout/CampaignRibbon";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import CampaignPreview from "@/components/layout/CampaignPreview";
 import { EMPTY_HEADER_CAMPAIGN, HEADER_THEMES, resolveHeaderTheme, type HeaderCampaign, type HeaderThemeKey } from "@/lib/header-campaign";
 
 async function readResponse(response: Response) {
@@ -104,7 +104,11 @@ export default function HeaderCampaignManager() {
         <legend className="px-2 text-lg font-semibold text-slate-900">Готовые наклейки</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           {HEADER_THEMES.map((theme) => <label key={theme.key} className={`cursor-pointer rounded-xl border-2 p-4 transition ${draft.theme === theme.key ? "border-amber-500 bg-amber-50" : "border-slate-200 hover:border-amber-300"}`}>
-            <div className="relative mb-3 h-20 rounded-lg" style={{ backgroundColor: theme.background }}><Image src={theme.image} alt="" aria-hidden="true" fill sizes="320px" unoptimized className="object-contain p-2" /></div>
+            <div className="theme-card__art" aria-hidden="true" style={{ "--campaign-accent": theme.accent } as CSSProperties}>
+              <Image src={theme.image} alt="" aria-hidden="true" fill sizes="(min-width: 1024px) 400px, 50vw" className="object-cover" />
+              <span className="theme-card__veil" />
+              <span className="theme-card__text" data-theme={theme.key}><small>{theme.eyebrow}</small><strong>{theme.title}</strong></span>
+            </div>
             <span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><input type="radio" name="theme" value={theme.key} checked={draft.theme === theme.key} onChange={() => selectTheme(theme.key)} className="accent-amber-600" />{theme.name}</span>
           </label>)}
         </div>
@@ -143,8 +147,8 @@ export default function HeaderCampaignManager() {
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <h2 className="px-6 pt-5 text-lg font-semibold text-slate-900">Предпросмотр</h2>
-        <div className="mt-4 flex items-center gap-4 border-t border-slate-100 px-4 py-4 text-sm text-slate-700"><span className="font-bold">ДомСтрой</span><span>☰ Каталог</span><span className="ml-auto hidden text-slate-400 sm:inline">Поиск · Корзина</span></div>
-        {selected ? <CampaignRibbon campaign={preview} hasPromos preview /> : <p className="border-t border-slate-100 px-6 py-4 text-sm text-slate-500">{draft.theme === "custom" ? "Загрузите наклейку, чтобы увидеть предпросмотр." : "Обычная шапка без наклейки и кнопки акций."}</p>}
+        <div className="mt-4"><CampaignPreview campaign={preview} /></div>
+        {!selected && <p className="border-t border-slate-100 px-6 py-4 text-sm text-slate-500">{draft.theme === "custom" ? "Загрузите наклейку, чтобы увидеть предпросмотр." : "Обычная шапка без оформления и кнопки акций."}</p>}
         <p className="border-t border-slate-100 px-6 py-4 text-xs leading-5 text-slate-500">{hasPromos ? "Активные акции есть — кнопка будет показана на сайте." : "Кнопка в предпросмотре показана как пример. Сейчас активных акций нет — на сайте она будет скрыта."}</p>
       </section>
       <button type="button" onClick={() => void save()} disabled={disabled || (draft.theme === "custom" && !preview.customImage)} className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300">{saving ? "Сохранение..." : checkingFile ? "Проверка изображения..." : "Сохранить оформление"}</button>
