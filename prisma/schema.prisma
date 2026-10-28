@@ -187,11 +187,22 @@ model Banner {
   updatedAt DateTime @updatedAt
 }
 
+// Выбранная наклейка шапки; встроенные варианты хранятся в Git.
+model HeaderCampaign {
+  id          String   @id @default("main")
+  theme       String   @default("none")
+  customImage String?
+  customTitle String   @default("Сезонные акции")
+  buttonLabel String   @default("")
+  updatedAt   DateTime @updatedAt
+}
+
 // Блок "Акции" на главной и в каталоге (?section=promo): администратор выбирает
 // уже существующий товар МойСклад (productId) и задаёт ему предыдущую ("зачеркнутую")
 // цену. Актуальная цена, фото, наличие и переход на карточку товара всегда берутся
 // живыми из МойСклад (см. src/lib/promo.ts) - здесь хранится только сама привязка
 // товара к акции и старая цена.
+
 model PromoItem {
   id        String   @id @default(cuid())
   productId String   @unique

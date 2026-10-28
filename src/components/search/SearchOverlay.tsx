@@ -150,7 +150,7 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Поиск по каталогу"
-            className="flex-1 text-base text-slate-800 outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 text-base text-slate-800 outline-none placeholder:text-slate-400"
           />
           <button
             type="submit"
@@ -161,9 +161,11 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Prop
           <button
             type="button"
             onClick={onClose}
+            aria-label="Закрыть"
             className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 transition hover:text-slate-700 sm:px-3 sm:text-sm"
           >
-            Закрыть
+            <span className="hidden sm:inline">Закрыть</span>
+            <svg aria-hidden="true" className="h-4 w-4 sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="m6 6 12 12M18 6 6 18" /></svg>
           </button>
         </form>
 

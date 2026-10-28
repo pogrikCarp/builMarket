@@ -2,21 +2,29 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CartButton from "@/components/cart/CartButton";
 import FavoriteButton from "@/components/favorites/FavoriteButton";
 import SearchOverlay from "@/components/search/SearchOverlay";
+import CampaignRibbon from "./CampaignRibbon";
+import { EMPTY_HEADER_CAMPAIGN, type HeaderCampaignState } from "@/lib/header-campaign";
 
 /**
- * Общий хедер для внутренних страниц (каталог, товар, корзина, избранное, оформление
- * заказа) - иконки вместо текстовых ссылок гарантируют, что на мобильном экране хедер
- * не переполняется по ширине и кнопка корзины всегда видна и доступна (в отличие от
- * прежних самодельных хедеров с текстовым `nav`, из-за которых корзина уходила за
- * пределы экрана на узких экранах). Полностью повторяет хедер главной страницы
- * (см. src/app/HomeClient.tsx), чтобы навигация была единообразной на всём сайте.
+ * Общая шапка главной и внутренних страниц. Тематический блок занимает отдельную
+ * строку: наклейки не перекрывают каталог, поиск, корзину и личный кабинет.
  */
-export default function SiteHeader() {
+export default function SiteHeader({ onRequestCallback }: { onRequestCallback?: () => void }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [decoration, setDecoration] = useState<HeaderCampaignState>({ campaign: EMPTY_HEADER_CAMPAIGN, hasPromos: false });
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/header-campaign", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (mounted && data?.campaign) setDecoration(data); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <>
@@ -28,6 +36,7 @@ export default function SiteHeader() {
           </Link>
           <Link
             href="/catalog"
+            aria-label="Каталог"
             prefetch={false}
             className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold text-slate-800 transition hover:text-amber-600 sm:px-3"
           >
@@ -47,6 +56,10 @@ export default function SiteHeader() {
             </svg>
           </button>
           <div className="flex-1 sm:hidden" />
+          {onRequestCallback && <div className="hidden min-w-32 text-center text-xs text-slate-500 lg:block">
+            <a href="tel:+79160045522" className="block font-semibold text-slate-900 hover:text-amber-600">+7 916 004-55-22</a>
+            <button type="button" onClick={onRequestCallback} className="uppercase tracking-wide hover:text-amber-600">заказать звонок</button>
+          </div>}
           <button
             type="button"
             aria-label="Поиск"
@@ -65,6 +78,7 @@ export default function SiteHeader() {
             </svg>
           </Link>
         </div>
+        <CampaignRibbon campaign={decoration.campaign} hasPromos={decoration.hasPromos} />
       </div>
     </>
   );

@@ -5,6 +5,7 @@ const SECTIONS = [
   { label: "Заказы", href: "/admin/orders", description: "Просмотр, статусы, экспорт" },
   { label: "Пользователи", href: "/admin/users", description: "Клиенты и роли" },
   { label: "Баннеры и акции", href: "/admin/banners", description: "Промо-блоки на сайте" },
+  { label: "Оформление шапки", href: "/admin/appearance", description: "Тематические наклейки и кнопка акций" },
   { label: "Страницы", href: "/admin/pages", description: "Статичные страницы" },
   { label: "SEO / Редиректы", href: "/admin/seo", description: "301/302 переадресации" },
 ];

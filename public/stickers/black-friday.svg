@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="240" viewBox="0 0 480 120" fill="none">
+  <g transform="rotate(2 240 60)">
+    <path d="m10 22 20-12H450L470 28V92L450 110H30L10 94Z" fill="#171326" stroke="#A78BFA" stroke-width="3"/>
+    <path d="m79 24 8 20 21-7-7 21 20 8-20 8 7 21-21-7-8 20-8-20-21 7 7-21-20-8 20-8-7-21 21 7Z" fill="#C4B5FD"/>
+    <path d="m68 79 23-27" stroke="#171326" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="68" cy="54" r="4" fill="#171326"/><circle cx="92" cy="78" r="4" fill="#171326"/>
+    <text x="149" y="48" fill="#C4B5FD" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="4">ЧЁРНАЯ</text>
+    <text x="146" y="88" fill="#FFFFFF" font-family="Arial,sans-serif" font-size="39" font-weight="900" letter-spacing="2">ПЯТНИЦА</text>
+  </g>
+</svg>

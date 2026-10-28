@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="240" viewBox="0 0 480 120" fill="none">
+  <g transform="rotate(-2 240 60)">
+    <path d="M14 15H466V43C448 43 448 77 466 77V105H14V77C32 77 32 43 14 43V15Z" fill="#FFCC45" stroke="#92400E" stroke-width="2"/>
+    <path d="M184 24V96" stroke="#92400E" stroke-width="2" stroke-dasharray="4 5"/>
+    <text x="34" y="80" fill="#29200D" font-family="Arial,sans-serif" font-size="52" font-weight="900" letter-spacing="-3">11.11</text>
+    <text x="207" y="54" fill="#29200D" font-family="Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2">БОЛЬШАЯ</text>
+    <text x="205" y="81" fill="#29200D" font-family="Arial,sans-serif" font-size="25" font-weight="900">РАСПРОДАЖА</text>
+  </g>
+  <path d="m451 2 3 9 9 3-9 3-3 9-3-9-9-3 9-3Z" fill="#B45309"/>
+  <circle cx="13" cy="108" r="5" fill="#B45309"/>
+</svg>
