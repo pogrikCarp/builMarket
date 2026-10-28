@@ -155,9 +155,16 @@ body {
 
 /* Uploaded artwork already contains its own composition and text. On phones,
    show the whole image at its original ratio, with controls beneath it. */
+.hero-carousel__mobile-links { display: none; }
 @media (width < 640px) {
   .hero-carousel--artwork .hero-carousel__viewport { height: auto; aspect-ratio: var(--hero-mobile-aspect, 8 / 3); background: #f6f3ee; }
   .hero-carousel--artwork :is(.hero-carousel__shade, .hero-carousel__content) { display: none; }
+  .hero-carousel--artwork .hero-carousel__mobile-links { display: block; padding: 12px; border-bottom: 1px solid #e9e4da; background: #fffdf9; }
+  .hero-carousel__mobile-links p { margin-bottom: 8px; color: #80725e; font-size: 10px; font-weight: 600; letter-spacing: .12em; }
+  .hero-carousel__mobile-links > div { display: flex; gap: 8px; }
+  .hero-carousel__mobile-links a { display: flex; flex: 1; align-items: center; justify-content: center; min-width: 0; min-height: 40px; padding: 8px; border: 1px solid #e4dccd; border-radius: 10px; background: #fff; color: #594522; font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+  .hero-carousel__mobile-links a:hover { border-color: #d6a645; background: #fff7e7; }
+  .hero-carousel__mobile-links a:focus-visible { outline: 2px solid #b87919; outline-offset: 2px; }
   .hero-carousel--artwork .hero-carousel__pagination { position: static; min-height: 32px; align-items: center; background: #f6f3ee; }
   .hero-carousel--artwork .hero-carousel__dot { background: #c7c1b7; }
   .hero-carousel--artwork .hero-carousel__dot[aria-current="true"] { background: #b87919; }

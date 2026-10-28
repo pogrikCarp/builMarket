@@ -324,6 +324,10 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
   const activeSlide = slides[activeIndex] ?? slides[0];
   const activeImageInfo = imageInfo[activeSlide.image];
   const isCustomArtwork = activeSlide.image !== HERO_IMAGES[activeIndex] && !activeImageInfo?.usesDefault;
+  const linkedHighlights = activeSlide.highlights.flatMap((label, index) => {
+    const href = activeSlide.highlightHrefs?.[index];
+    return href ? [{ label, href }] : [];
+  });
 
   const goPrev = () => setActiveIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   const goNext = () => setActiveIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
@@ -462,6 +466,10 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
           </div>
         </div>
       </div>
+      {isCustomArtwork && linkedHighlights.length > 0 && <nav className="hero-carousel__mobile-links" aria-label={activeSlide.brand}>
+        <p>{activeSlide.brand}</p>
+        <div>{linkedHighlights.map(({ label, href }) => <Link key={href} href={href} prefetch={false}>{label}</Link>)}</div>
+      </nav>}
       <div className="hero-carousel__pagination absolute inset-x-0 bottom-6 z-30 flex justify-center gap-2">
         {slides.map((slide, idx) => (
           <button
