@@ -9,8 +9,9 @@ export function CampaignIdentity({ campaign }: { campaign: HeaderCampaign }) {
   if (!theme) return null;
   if (campaign.theme === "custom") return <div className="campaign__custom"><Image src={theme.image} alt={theme.name} fill sizes="144px" unoptimized className="object-contain" /></div>;
   return <div className="campaign__identity">
-    <span className="campaign__eyebrow">{theme.eyebrow}</span>
-    <span className="campaign__title">{theme.title}</span>
+    <div className="campaign__art" aria-hidden="true"><Image src={theme.image} alt="" fill sizes="220px" className="object-cover" /></div>
+    <div className="campaign__copy"><span className="campaign__eyebrow">{theme.eyebrow}</span>
+    <span className="campaign__title">{theme.title}</span></div>
   </div>;
 }
 

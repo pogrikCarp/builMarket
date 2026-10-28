@@ -104,7 +104,7 @@ export default function HeaderCampaignManager() {
         <legend className="px-2 text-lg font-semibold text-slate-900">Готовые наклейки</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           {HEADER_THEMES.map((theme) => <label key={theme.key} className={`cursor-pointer rounded-xl border-2 p-4 transition ${draft.theme === theme.key ? "border-amber-500 bg-amber-50" : "border-slate-200 hover:border-amber-300"}`}>
-            <div className="theme-card__art" aria-hidden="true" style={{ "--campaign-accent": theme.accent } as CSSProperties}>
+            <div className="theme-card__art" aria-hidden="true" style={{ "--campaign-accent": theme.accent, "--campaign-color": theme.color } as CSSProperties}>
               <Image src={theme.image} alt="" aria-hidden="true" fill sizes="(min-width: 1024px) 400px, 50vw" className="object-cover" />
               <span className="theme-card__veil" />
               <span className="theme-card__text" data-theme={theme.key}><small>{theme.eyebrow}</small><strong>{theme.title}</strong></span>

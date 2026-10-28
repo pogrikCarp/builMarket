@@ -45,7 +45,7 @@ try {
     changed = true;
     assert.equal((await state()).campaign.theme, theme);
     assert.equal((await state()).hasPromos, false);
-    if (theme !== "none") assert.equal((await request(`/header-themes/${theme}.webp`)).status, 200);
+    if (theme !== "none") assert.equal((await request(`/header-themes/${theme}-light.webp`)).status, 200);
   }
   console.log("PASS: all four default stickers and disabled state persist; no CTA availability without promos");
 

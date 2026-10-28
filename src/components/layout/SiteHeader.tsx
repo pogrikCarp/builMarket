@@ -30,10 +30,9 @@ export default function SiteHeader({ onRequestCallback }: { onRequestCallback?: 
 
   return <>
     <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
-    <header data-site-header className={`site-header${theme ? " site-header--themed" : ""}`} style={theme ? { "--campaign-accent": theme.accent, backgroundColor: theme.background } as CSSProperties : undefined}>
-      {theme && decoration.campaign.theme !== "custom" && <div className="site-header__scene" aria-hidden="true"><Image src={theme.image} alt="" fill sizes="100vw" className="object-cover" /><span /></div>}
+    <header data-site-header className={`site-header${theme ? " site-header--themed" : ""}`} style={theme ? { "--campaign-accent": theme.accent, "--campaign-color": theme.color, "--campaign-button": theme.buttonColor, "--campaign-button-text": theme.buttonTextColor, backgroundColor: theme.background } as CSSProperties : undefined}>
       <div className="site-header__row">
-        <Link href="/" className="site-header__logo"><Image src="/logo.png" alt="ДомСтрой" width={150} height={70} className="h-full w-auto object-contain" /></Link>
+        <Link href="/" className="site-header__logo"><Image src="/logo.png" alt="ДомСтрой" width={1024} height={1024} sizes="(min-width: 1024px) 76px, (min-width: 640px) 68px, 56px" className="h-full w-full object-contain" /></Link>
         <Link href="/catalog" aria-label="Каталог" prefetch={false} className="site-header__catalog">
           <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
           <span>Каталог</span>

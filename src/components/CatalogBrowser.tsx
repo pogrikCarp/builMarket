@@ -161,6 +161,46 @@ export default function CatalogBrowser({
   const [previousInitialPage, setPreviousInitialPage] = useState(initialPage);
   const catalogTopRef = useRef<HTMLDivElement | null>(null);
 
+  // Header links can change the section/search while Next.js keeps this client
+  // component mounted. Accept that navigation without resetting filters when
+  // the incoming URL merely confirms our own debounced router.replace.
+  const incomingUrl = buildCatalogUrl({
+    section: initialFolder ? "folder" : initialSection,
+    folderId: initialFolder?.id ?? null,
+    search: initialSearch,
+    sort: isSortOption(initialSort) ? initialSort : DEFAULT_CATALOG_SORT,
+    inStock: initialOnlyInStock,
+    priceFrom: initialPriceFrom,
+    priceTo: initialPriceTo,
+    page: initialPage,
+  });
+  const [previousSelection, setPreviousSelection] = useState(incomingUrl);
+  const [synchronizedUrl, setSynchronizedUrl] = useState<string | null>(null);
+  if (incomingUrl !== previousSelection) {
+    setPreviousSelection(incomingUrl);
+    setSynchronizedUrl(null);
+    const nextSection = initialFolder ? "folder" : initialSection;
+    if (incomingUrl !== synchronizedUrl) {
+      if (activeSection !== nextSection || activeFolder?.id !== initialFolder?.id || searchQuery !== initialSearch) setAttributeFilters({});
+      setActiveSection(nextSection);
+      setActiveFolder(initialFolder);
+      setSearchQuery(initialSearch);
+      setSortOption(isSortOption(initialSort) ? initialSort : DEFAULT_CATALOG_SORT);
+      setOnlyInStock(initialOnlyInStock);
+      setPriceFrom(initialPriceFrom);
+      setPriceTo(initialPriceTo);
+      setItems(initialItems);
+      if (!initialFolder) setAllItems(initialItems);
+      setLoading(false);
+      setCurrentPage(initialPage);
+    }
+  }
+
+  useEffect(() => {
+    // An external navigation supersedes any pending request for the old folder.
+    if (!loading) abortRef.current?.abort();
+  }, [incomingUrl, loading]);
+
   if (initialPage !== previousInitialPage) {
     setPreviousInitialPage(initialPage);
     setCurrentPage(initialPage);
@@ -179,6 +219,7 @@ export default function CatalogBrowser({
       );
       if (!res.ok) throw new Error("Ошибка загрузки");
       const data = await res.json();
+      if (controller.signal.aborted) return;
       setItems(data.rows ?? []);
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
@@ -199,6 +240,7 @@ export default function CatalogBrowser({
       const res = await fetch(`/api/moysklad/assortment?limit=1000&slim=1`, { signal: controller.signal });
       if (!res.ok) throw new Error("Ошибка загрузки");
       const data = await res.json();
+      if (controller.signal.aborted) return;
       const rows = data.rows ?? [];
       setAllItems(rows);
       setItems(rows);
@@ -271,13 +313,17 @@ export default function CatalogBrowser({
       isFirstUrlSyncRef.current = false;
       return;
     }
+    // A header navigation already supplied this URL. Replacing it again after
+    // the debounce could overwrite a subsequent click on another header link.
+    if (url === incomingUrl) return;
 
     const timeoutId = window.setTimeout(() => {
+      setSynchronizedUrl(url);
       router.replace(url, { scroll: false });
     }, 400);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, currentPage, router]);
+  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, currentPage, router, incomingUrl]);
 
   // Фильтры характеристик сбрасываем только при смене раздела, а не при
   // обновлении статистики/цен того же списка или смене страницы.
