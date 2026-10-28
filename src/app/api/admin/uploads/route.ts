@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { uploadsDirectory } from "@/lib/uploads";
 
 export const runtime = "nodejs";
 
@@ -30,14 +31,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Поддерживаются JPG, PNG, WEBP и GIF" }, { status: 400 });
   }
 
+  if (file.size === 0) {
+    return NextResponse.json({ error: "Файл пуст" }, { status: 400 });
+  }
+
   if (file.size > 8 * 1024 * 1024) {
     return NextResponse.json({ error: "Размер файла не должен превышать 8 МБ" }, { status: 400 });
   }
 
   const fileName = `${Date.now()}-${randomUUID()}.${extension}`;
-  const uploadDirectory = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadDirectory, { recursive: true });
-  await writeFile(path.join(uploadDirectory, fileName), Buffer.from(await file.arrayBuffer()));
+  try {
+    const uploadDirectory = uploadsDirectory();
+    await mkdir(uploadDirectory, { recursive: true });
+    await writeFile(path.join(uploadDirectory, fileName), Buffer.from(await file.arrayBuffer()));
+  } catch (error) {
+    console.error("[admin/uploads] Failed to save image:", error);
+    return NextResponse.json({ error: "Не удалось сохранить изображение. Повторите попытку." }, { status: 500 });
+  }
 
   return NextResponse.json({ url: `/uploads/${fileName}` }, { status: 201 });
 }

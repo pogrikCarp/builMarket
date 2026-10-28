@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import MediaImage from "@/components/MediaImage";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 import JsonLd from "@/components/JsonLd";
@@ -31,16 +31,17 @@ const BRAND_NOTES = [
 export default async function BrandsPage() {
   const media = await prisma.banner.findMany({
     where: { type: "BRAND", active: true },
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
   });
   const brands = [
     ...BRANDS.map((brand, index) => ({
       ...brand,
       logo: media.find((item) => item.sortOrder === index)?.image || brand.logo,
+      fallbackSrc: brand.logo,
     })),
     ...media
       .filter((item) => item.sortOrder >= BRANDS.length && item.image)
-      .map((item) => ({ name: item.title, logo: item.image as string, slug: undefined as string | undefined })),
+      .map((item) => ({ name: item.title, logo: item.image as string, fallbackSrc: item.image as string, slug: undefined as string | undefined })),
   ];
 
   return (
@@ -86,7 +87,7 @@ export default async function BrandsPage() {
               const content = (
                 <>
                   <div className="flex h-24 items-center justify-center rounded-2xl bg-[#fdf8f1]">
-                    <Image src={brand.logo} alt={brand.name} width={180} height={80} className="h-16 w-auto object-contain" />
+                    <MediaImage src={brand.logo} fallbackSrc={brand.fallbackSrc} alt={brand.name} width={180} height={80} className="h-16 w-auto object-contain" />
                   </div>
                   <p className="mt-4 text-center text-sm font-semibold text-slate-700">{brand.name}</p>
                   {brand.slug && (

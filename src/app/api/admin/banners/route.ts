@@ -20,7 +20,7 @@ export async function GET() {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const banners = await prisma.banner.findMany({ orderBy: { sortOrder: "asc" } });
+  const banners = await prisma.banner.findMany({ orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }, { id: "asc" }] });
   return NextResponse.json({ banners });
 }
 

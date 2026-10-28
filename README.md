@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+ДомСтрой / BuildMarket — Next.js 16, React 19, Prisma и PostgreSQL.
 
-## Getting Started
+Рабочий репозиторий: https://github.com/pogrikCarp/builMarket (remote `origin`).
+Проект можно запускать из любой папки, в том числе `F:\АКТУАЛЬНЫЕ ПРОЕКТЫ\domstroy`:
+пути к ресурсам вычисляются от текущего рабочего каталога. Команды запускайте из корня проекта.
 
-First, run the development server (configured to use the more stable webpack dev server by default — Turbopack was causing CPU spikes on this project’s large client bundle). If you still want to try Turbopack, pass `--turbo` manually.
+## Локальный запуск и перенос папки
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Сохраните локальный `.env` при переносе. Он содержит `DATABASE_URL`, `AUTH_SECRET`
+и настройки внешних сервисов и не входит в Git. PostgreSQL должен быть запущен
+по адресу из `DATABASE_URL`; перенос исходников не переносит саму базу.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+При чистом клонировании выполните `npm ci`, затем `npx prisma generate` и
+`npx prisma migrate deploy`. Для разработки используйте `npm run dev`,
+для проверки production-версии — `npm run build` и `npm start`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Баннеры и изображения
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Оригиналы четырёх слайдов, четырёх наборов, шести сертификатов и пяти логотипов
+зарегистрированы в `src/lib/default-media.ts` и хранятся в `public` под контролем Git.
+Админ-панель `/admin/banners` показывает оригинал каждого блока и позволяет
+сохранить замену либо вернуть изображение по умолчанию. Сброс удаляет только
+записи замен в БД; исходный файл сохраняется.
 
-## Learn More
+Загрузки (JPG, PNG, WEBP, GIF до 8 МБ) хранятся в `public/uploads`.
+На сервере это ссылка на `/opt/domstroy/shared/uploads`, общую для всех релизов.
+Nginx раздаёт `/uploads/` напрямую; без nginx файлы обслуживает Route Handler,
+поэтому новые загрузки доступны сразу, без пересборки и перезапуска.
 
-To learn more about Next.js, take a look at the following resources:
+Проверка: `npm run lint`, `npm run build`. Для регрессионной проверки загрузок
+и админки запустите `npm.cmd start -- --port 3100` (Windows), затем в другом терминале
+`node --env-file=.env scripts/check-banner-media.mjs`. Эта проверка рассчитана
+только на локальную БД и свободные первые слоты баннеров, создаёт временные
+записи и файлы и удаляет их после завершения.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Выкладка
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Push в `origin/main` запускает `.github/workflows/deploy.yml`: lint, сборку,
+загрузку исходников по SSH и blue-green деплой через `scripts/deploy.sh`.
+Секреты `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `SSH_KEY` используются внутри Actions.
+Каждый релиз собирается в `/opt/domstroy/releases/<release_id>`; `.env`, загрузки
+и фотографии каталога остаются общими. Nginx переключает трафик после health-check.
+После выкладки `scripts/check-media-serving.sh` создаёт временную картинку уже
+после старта приложения, проверяет её содержимое через Next.js и публичный HTTPS
+и удаляет тестовый файл.

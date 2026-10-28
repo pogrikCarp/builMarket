@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import MediaImage from "@/components/MediaImage";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import CartButton from "@/components/cart/CartButton";
@@ -15,6 +16,7 @@ import { buildFolderTree } from "@/lib/folder-tree";
 import SiteFooter from "@/components/SiteFooter";
 import type { ResolvedPromoItem } from "@/lib/promo";
 import { getItemGalleryThumbnailUrls } from "@/lib/moysklad-format";
+import { CERTIFICATES, HERO_IMAGES } from "@/lib/default-media";
 
 function formatPrice(value?: number | null) {
   if (value == null) return null;
@@ -64,14 +66,7 @@ const BRANDS: { name: string; logo: string; slug?: string }[] = BRAND_PROFILES.m
   slug: brand.slug,
 }));
 
-const CERT_PLACEHOLDERS = [
-  { id: 1, label: "Сертификат №1", image: "/sertificat/sert1.png" },
-  { id: 2, label: "Сертификат №2", image: "/sertificat/sert2.png" },
-  { id: 3, label: "Сертификат №3", image: "/sertificat/sert3.png" },
-  { id: 4, label: "Сертификат №4", image: "/sertificat/sert4.png" },
-  { id: 5, label: "Сертификат №5", image: "/sertificat/sert5.png" },
-  { id: 6, label: "Сертификат №6", image: "/sertificat/sert6.png" },
-];
+const CERT_PLACEHOLDERS = CERTIFICATES.map((item) => ({ ...item, label: `Сертификат №${item.id}` }));
 
 type HeroSlide = {
   id: number;
@@ -90,7 +85,7 @@ const HERO_SLIDES: HeroSlide[] = [
     id: 1,
     brand: "ЭЛЕКТРОИНСТРУМЕНТЫ",
     caption: "Прямые поставки с Китая",
-    image: "/banner4.png",
+    image: HERO_IMAGES[0],
     highlights: ["Fengbao", "Edon", "Redbo"],
     // Названия брендов на этом баннере кликабельны - ведут в каталог с поиском по бренду.
     highlightHrefs: ["/catalog?q=Fengbao", "/catalog?q=Edon", "/catalog?q=Redbo"],
@@ -99,21 +94,21 @@ const HERO_SLIDES: HeroSlide[] = [
     id: 2,
     brand: "ЩЕБЕНЬ И ПЕСОК",
     caption: "Домстрой — прямые поставки с карьера",
-    image: "/main3.png",
+    image: HERO_IMAGES[1],
     highlights: ["Щебень разных фракций", "Карьерный и мытый песок", "Доставка на объект"],
   },
   {
     id: 3,
     brand: "ТЕХНОНИКОЛЬ",
     caption: "Доставка комплектов под ключ",
-    image: "/car2.png",
+    image: HERO_IMAGES[2],
     highlights: ["Доставим за 24 часа", "Самовывоз со склада", "Онлайн отслеживание"],
   },
   {
     id: 4,
     brand: "KNAUF",
     caption: "Инженерные решения для сантехники",
-    image: "/car3.png",
+    image: HERO_IMAGES[3],
     highlights: ["Водоснабжение", "Отопление", "Монтаж инженерии"],
   },
 ];
@@ -400,8 +395,9 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
         >
           {slides.map((slide, idx) => (
             <div key={slide.id} className="relative h-full w-full shrink-0">
-              <Image
+              <MediaImage
                 src={slide.image}
+                fallbackSrc={HERO_IMAGES[idx]}
                 alt={slide.brand}
                 fill
                 priority={idx === 0}
@@ -476,7 +472,7 @@ const HeroCarousel = ({ slides }: { slides: typeof HERO_SLIDES }) => {
   );
 };
 
-type CertificateCard = { id: string | number; label: string; image: string };
+type CertificateCard = { id: string | number; label: string; image: string; fallbackSrc: string };
 
 const CertificatesCarousel = ({ cards }: { cards: CertificateCard[] }) => {
   const CARD_MIN_WIDTH = 200;
@@ -569,7 +565,7 @@ const CertificatesCarousel = ({ cards }: { cards: CertificateCard[] }) => {
               className="group relative flex-shrink-0 overflow-hidden rounded-[32px] border border-amber-100 bg-white/90 p-4 text-center shadow-[0_35px_80px_rgba(19,12,3,0.12)] transition duration-500 hover:-translate-y-2 hover:border-amber-300 animate-fade-up"
             >
               <div className="relative mx-auto h-44 w-full sm:h-48">
-                <Image src={card.image} alt={card.label} fill className="object-contain" sizes="(max-width: 640px) calc(100vw - 56px), 18vw" />
+                <MediaImage src={card.image} fallbackSrc={card.fallbackSrc} alt={card.label} fill className="object-contain" sizes="(max-width: 640px) calc(100vw - 56px), 18vw" />
               </div>
             </div>
           ))}
@@ -613,10 +609,11 @@ export default function HomeClient() {
       ...CERT_PLACEHOLDERS.map((certificate, index) => ({
         ...certificate,
         image: homeMedia.find((item) => item.type === "CERTIFICATE" && item.sortOrder === index)?.image || certificate.image,
+        fallbackSrc: certificate.image,
       })),
       ...homeMedia
         .filter((item) => item.type === "CERTIFICATE" && item.sortOrder >= CERT_PLACEHOLDERS.length && item.image)
-        .map((item) => ({ id: item.id, label: item.title, image: item.image as string })),
+        .map((item) => ({ id: item.id, label: item.title, image: item.image as string, fallbackSrc: item.image as string })),
     ],
     [homeMedia]
   );
@@ -625,10 +622,11 @@ export default function HomeClient() {
       ...BRANDS.map((brand, index) => ({
         ...brand,
         logo: homeMedia.find((item) => item.type === "BRAND" && item.sortOrder === index)?.image || brand.logo,
+        fallbackSrc: brand.logo,
       })),
       ...homeMedia
         .filter((item) => item.type === "BRAND" && item.sortOrder >= BRANDS.length && item.image)
-        .map((item) => ({ name: item.title, logo: item.image as string, slug: undefined as string | undefined })),
+        .map((item) => ({ name: item.title, logo: item.image as string, fallbackSrc: item.image as string, slug: undefined as string | undefined })),
     ],
     [homeMedia]
   );
@@ -960,8 +958,9 @@ export default function HomeClient() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {brands.map((brand, idx) => {
                 const logo = (
-                  <Image
+                  <MediaImage
                     src={brand.logo}
+                    fallbackSrc={brand.fallbackSrc}
                     alt={`Логотип ${brand.name}`}
                     width={idx === 0 ? 300 : 160}
                     height={idx === 0 ? 96 : 64}

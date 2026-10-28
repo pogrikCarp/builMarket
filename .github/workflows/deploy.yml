@@ -100,7 +100,7 @@ jobs:
       - name: Run deploy script on server
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "bash ${{ env.APP_DIR }}/releases/${{ steps.release.outputs.id }}/scripts/deploy.sh ${{ steps.release.outputs.id }}"
+            "bash ${{ env.APP_DIR }}/releases/${{ steps.release.outputs.id }}/scripts/deploy.sh ${{ steps.release.outputs.id }} && bash ${{ env.APP_DIR }}/releases/${{ steps.release.outputs.id }}/scripts/check-media-serving.sh ${{ steps.release.outputs.id }}"
 
       - name: Verify site responds over HTTPS
         run: |

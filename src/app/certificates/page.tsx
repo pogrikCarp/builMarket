@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import MediaImage from "@/components/MediaImage";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
 import { buildMetadata } from "@/lib/seo";
+import { CERTIFICATES } from "@/lib/default-media";
 
 export const dynamic = "force-dynamic";
 
@@ -13,28 +14,20 @@ export const metadata: Metadata = buildMetadata({
   path: "/certificates",
 });
 
-const CERTIFICATES = [
-  { id: 1, title: "Сертификат соответствия", image: "/sertificat/sert1.png" },
-  { id: 2, title: "Лицензия на поставку", image: "/sertificat/sert2.png" },
-  { id: 3, title: "Партнерский статус", image: "/sertificat/sert3.png" },
-  { id: 4, title: "Сертификат качества", image: "/sertificat/sert4.png" },
-  { id: 5, title: "Экологическая безопасность", image: "/sertificat/sert5.png" },
-  { id: 6, title: "Технический допуск", image: "/sertificat/sert6.png" },
-];
-
 export default async function CertificatesPage() {
   const media = await prisma.banner.findMany({
     where: { type: "CERTIFICATE", active: true },
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
   });
   const certificates = [
     ...CERTIFICATES.map((certificate, index) => ({
       ...certificate,
       image: media.find((item) => item.sortOrder === index)?.image || certificate.image,
+      fallbackSrc: certificate.image,
     })),
     ...media
       .filter((item) => item.sortOrder >= CERTIFICATES.length && item.image)
-      .map((item) => ({ id: item.id, title: item.title, image: item.image as string })),
+      .map((item) => ({ id: item.id, title: item.title, image: item.image as string, fallbackSrc: item.image as string })),
   ];
 
   return (
@@ -66,7 +59,7 @@ export default async function CertificatesPage() {
             {certificates.map((certificate) => (
               <div key={certificate.id} className="rounded-2xl border border-slate-100 bg-white/90 p-3 shadow-sm sm:rounded-3xl sm:p-4">
                 <div className="relative h-56 overflow-hidden rounded-xl bg-slate-50 sm:h-64 sm:rounded-2xl">
-                  <Image src={certificate.image} alt={certificate.title} fill className="object-contain p-4 sm:p-6" />
+                  <MediaImage src={certificate.image} fallbackSrc={certificate.fallbackSrc} alt={certificate.title} fill className="object-contain p-4 sm:p-6" />
                 </div>
                 <p className="mt-4 text-center text-sm font-semibold text-slate-800">{certificate.title}</p>
               </div>

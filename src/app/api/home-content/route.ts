@@ -14,7 +14,7 @@ export async function GET() {
         { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
       ],
     },
-    orderBy: [{ type: "asc" }, { sortOrder: "asc" }],
+    orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
   });
 
   return NextResponse.json({ content });

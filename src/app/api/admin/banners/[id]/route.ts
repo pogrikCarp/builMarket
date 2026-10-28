@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getDefaultMedia } from "@/lib/default-media";
 
 async function requireAdmin() {
   const session = await auth();
@@ -51,6 +52,13 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  await prisma.banner.delete({ where: { id } });
+  const banner = await prisma.banner.findUnique({ where: { id } });
+  if (!banner) return NextResponse.json({ ok: true });
+  // Remove all overrides for this original so a legacy duplicate cannot reappear.
+  if (getDefaultMedia(banner.type, banner.sortOrder)) {
+    await prisma.banner.deleteMany({ where: { type: banner.type, sortOrder: banner.sortOrder } });
+  } else {
+    await prisma.banner.delete({ where: { id } });
+  }
   return NextResponse.json({ ok: true });
 }
