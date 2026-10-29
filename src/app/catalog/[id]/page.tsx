@@ -114,25 +114,25 @@ export default async function ProductPage({ params }: ProductPageProps) {
       />
       <SiteHeader />
 
-      <main className="mx-auto max-w-7xl px-4 py-8">
+      <main className="mx-auto min-w-0 max-w-7xl px-4 py-6 [overflow-wrap:anywhere] sm:py-8">
         <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
           <Link href="/catalog" prefetch={false} className="hover:text-amber-600">Каталог</Link>
           {folderPath.map((folder) => (
-            <span key={folder.id} className="flex items-center gap-1.5">
-              <span>/</span>
-              <Link href={`/catalog?folder=${folder.id}`} prefetch={false} className="hover:text-amber-600">{folder.name}</Link>
+            <span key={folder.id} className="flex min-w-0 max-w-full items-start gap-1.5">
+              <span className="shrink-0">/</span>
+              <Link href={`/catalog?folder=${folder.id}`} prefetch={false} className="min-w-0 hover:text-amber-600">{folder.name}</Link>
             </span>
           ))}
-          <span className="flex items-center gap-1.5">
-            <span>/</span>
-            <span className="text-slate-700">{item.name}</span>
+          <span className="flex min-w-0 max-w-full items-start gap-1.5">
+            <span className="shrink-0">/</span>
+            <span className="min-w-0 text-slate-700">{item.name}</span>
           </span>
         </nav>
 
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid min-w-0 grid-cols-1 gap-6 sm:gap-10 lg:grid-cols-2">
           <ProductGallery images={images} alt={item.name} />
 
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold leading-snug text-slate-900 sm:text-3xl">{item.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-400">
               {item.article && <span>Артикул: {item.article}</span>}
@@ -152,7 +152,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {item.quantity && item.quantity > 0 ? `● В наличии: ${item.quantity}` : "Нет в наличии"}
             </p>
 
-            <div className="mt-6 flex items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               <ProductCartControl item={item} size="md" />
               <ProductFavoriteToggle item={item} imageUrl={images[0]} size="md" />
             </div>
@@ -162,9 +162,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <h2 className="text-lg font-semibold text-slate-900">Характеристики</h2>
                 <dl className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
                   {attributes.map((attribute) => (
-                    <div key={attribute.name} className="flex justify-between gap-4 px-4 py-3 text-sm">
-                      <dt className="text-slate-500">{attribute.name}</dt>
-                      <dd className="text-right font-medium text-slate-900">{attribute.value}</dd>
+                    <div key={attribute.name} className="grid grid-cols-1 gap-1 px-4 py-3 text-sm sm:grid-cols-2 sm:gap-4">
+                      <dt className="min-w-0 text-slate-500">{attribute.name}</dt>
+                      <dd className="min-w-0 font-medium text-slate-900 sm:text-right">{attribute.value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -174,7 +174,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {item.description && (
               <div className="mt-10">
                 <h2 className="text-lg font-semibold text-slate-900">Описание</h2>
-                <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-slate-600">{item.description}</p>
+                <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-slate-600">{item.description}</p>
               </div>
             )}
           </div>
