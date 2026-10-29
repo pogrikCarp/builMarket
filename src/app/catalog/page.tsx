@@ -6,6 +6,7 @@ import JsonLd from "@/components/JsonLd";
 import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 import { getFolderPath } from "@/lib/folder-tree";
 import { getResolvedPromoItems } from "@/lib/promo";
+import styles from "@/components/catalog/Catalog.module.css";
 
 type CatalogSearchParams = {
   folder?: string;
@@ -16,6 +17,7 @@ type CatalogSearchParams = {
   priceFrom?: string;
   priceTo?: string;
   page?: string;
+  view?: string;
 };
 
 function getPageNumber(value?: string): number {
@@ -118,12 +120,12 @@ export default async function CatalogPage({
   ];
 
   return (
-    <div className="min-h-screen bg-stone-50 text-slate-900">
+    <div className={`min-h-screen bg-stone-50 text-slate-900 ${styles.shell}`}>
       <JsonLd data={buildBreadcrumbJsonLd(breadcrumbItems)} />
       <SiteHeader />
 
-      <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-6">
+      <main className={`mx-auto max-w-7xl px-4 py-8 ${styles.page}`}>
+        <div className={`mb-6 ${styles.desktopHeading}`}>
           <h1 className="text-2xl font-semibold text-slate-900">{pageHeading}</h1>
           <p className="mt-1 text-sm text-slate-500">Наведите на группу — товары появятся справа</p>
         </div>
@@ -132,7 +134,7 @@ export default async function CatalogPage({
           <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+        <div className={`overflow-hidden rounded-2xl border border-slate-200 shadow-sm ${styles.frame}`}>
           <CatalogBrowser
             folders={folders}
             initialItems={initialItems}
@@ -144,6 +146,7 @@ export default async function CatalogPage({
             initialPriceFrom={params?.priceFrom}
             initialPriceTo={params?.priceTo}
             initialPage={initialPage}
+            initialView={params?.view === "products" ? "products" : undefined}
             initialPromoItems={initialPromoItems}
           />
         </div>

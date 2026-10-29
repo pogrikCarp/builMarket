@@ -1,0 +1,974 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ProductCartControl from "@/components/cart/ProductCartControl";
+import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
+import type { MoyskladProductFolder } from "@/lib/moysklad";
+import { getItemGalleryThumbnailUrls, type CatalogListItem } from "@/lib/moysklad-format";
+import { buildFolderTree, getFolderPath } from "@/lib/folder-tree";
+import type { ResolvedPromoItem } from "@/lib/promo";
+import ProductCardMedia from "@/components/catalog/ProductCardMedia";
+import {
+  CATALOG_SORT_LABELS as SORT_LABELS,
+  DEFAULT_CATALOG_SORT,
+  sortCatalogItems,
+  isCatalogSortOption as isSortOption,
+  type CatalogSortOption as SortOption,
+} from "@/lib/catalog-sort";
+
+function formatPrice(value?: number) {
+  if (value == null) return null;
+  return (value / 100).toLocaleString("ru-RU", {
+    style: "currency",
+    currency: "RUB",
+    maximumFractionDigits: 0,
+  });
+}
+
+type CatalogSection = "all" | "promo" | "folder";
+
+const PRODUCTS_PER_PAGE = 50;
+
+type PaginationItem = number | "start-ellipsis" | "end-ellipsis";
+
+function getPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+
+  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+  if (currentPage <= 4) [2, 3, 4, 5].forEach((page) => pages.add(page));
+  if (currentPage >= totalPages - 3) {
+    [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1].forEach((page) => pages.add(page));
+  }
+
+  const sortedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+  const result: PaginationItem[] = [];
+
+  sortedPages.forEach((page, index) => {
+    const previousPage = sortedPages[index - 1];
+    if (previousPage && page - previousPage > 1) {
+      result.push(previousPage === 1 ? "start-ellipsis" : "end-ellipsis");
+    }
+    result.push(page);
+  });
+
+  return result;
+}
+
+export type CatalogBrowserProps = {
+  folders: MoyskladProductFolder[];
+  initialItems: CatalogListItem[];
+  initialFolderId?: string;
+  initialSection?: "all" | "promo";
+  initialSearch?: string;
+  initialSort?: string;
+  initialOnlyInStock?: boolean;
+  initialPriceFrom?: string;
+  initialPriceTo?: string;
+  initialPage?: number;
+  initialPromoItems?: ResolvedPromoItem[];
+};
+
+// Формирует адрес /catalog с параметрами текущего просмотра (раздел, поиск, сортировка, фильтры),
+// чтобы кнопка "назад" браузера после открытия карточки товара возвращала туда же, откуда ушли.
+function buildCatalogUrl(state: {
+  section: CatalogSection;
+  folderId: string | null;
+  search: string;
+  sort: SortOption;
+  inStock: boolean;
+  priceFrom: string;
+  priceTo: string;
+  page: number;
+}): string {
+  const params = new URLSearchParams();
+  const trimmedSearch = state.search.trim();
+
+  if (trimmedSearch) {
+    params.set("q", trimmedSearch);
+  } else if (state.section === "promo") {
+    params.set("section", "promo");
+  } else if (state.section === "folder" && state.folderId) {
+    params.set("folder", state.folderId);
+  }
+
+  if (state.sort !== DEFAULT_CATALOG_SORT) params.set("sort", state.sort);
+  if (state.inStock) params.set("stock", "1");
+  if (state.priceFrom) params.set("priceFrom", state.priceFrom);
+  if (state.priceTo) params.set("priceTo", state.priceTo);
+  if (state.page > 1) params.set("page", String(state.page));
+
+  const query = params.toString();
+  return `/catalog${query ? `?${query}` : ""}`;
+}
+
+export default function DesktopCatalogBrowser({
+  folders,
+  initialItems,
+  initialFolderId,
+  initialSection = "all",
+  initialSearch = "",
+  initialSort,
+  initialOnlyInStock = false,
+  initialPriceFrom = "",
+  initialPriceTo = "",
+  initialPage = 1,
+  initialPromoItems = [],
+}: CatalogBrowserProps) {
+  const initialFolder = useMemo(
+    () => (initialFolderId ? folders.find((folder) => folder.id === initialFolderId) ?? null : null),
+    [folders, initialFolderId]
+  );
+  const { roots: rootFolders, childrenByParent } = useMemo(() => buildFolderTree(folders), [folders]);
+  const [activeFolder, setActiveFolder] = useState<MoyskladProductFolder | null>(initialFolder);
+  // Полная цепочка предков активной папки (раздел → категория → подкатегория...) —
+  // нужна, чтобы на любом уровне вложенности подсвечивать и раскрывать правильный путь,
+  // а не только раздел + один уровень подкатегорий.
+  const activePath = useMemo(
+    () => (activeFolder ? getFolderPath(activeFolder, folders) : []),
+    [activeFolder, folders]
+  );
+  const [activeSection, setActiveSection] = useState<CatalogSection>(
+    initialFolder ? "folder" : initialSection
+  );
+  const [allItems, setAllItems] = useState<CatalogListItem[]>(initialFolder ? [] : initialItems);
+  const [items, setItems] = useState<CatalogListItem[]>(initialItems);
+  const [loading, setLoading] = useState(false);
+  const [previousInitialItems, setPreviousInitialItems] = useState(initialItems);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // При возвращении/переходе Next.js передаёт свежий локальный рейтинг. Принимаем
+  // его, сохраняя выбранные фильтры и страницу; данные чужого раздела не подмешиваем.
+  if (initialItems !== previousInitialItems) {
+    setPreviousInitialItems(initialItems);
+    if (!loading && activeSection !== "promo" && initialFolder?.id === activeFolder?.id) {
+      setItems(initialItems);
+      if (!initialFolder) setAllItems(initialItems);
+    }
+  }
+
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [sortOption, setSortOption] = useState<SortOption>(isSortOption(initialSort) ? initialSort : DEFAULT_CATALOG_SORT);
+  const [onlyInStock, setOnlyInStock] = useState(initialOnlyInStock);
+  const [priceFrom, setPriceFrom] = useState(initialPriceFrom);
+  const [priceTo, setPriceTo] = useState(initialPriceTo);
+  const [attributeFilters, setAttributeFilters] = useState<Record<string, Set<string>>>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [previousInitialPage, setPreviousInitialPage] = useState(initialPage);
+  const catalogTopRef = useRef<HTMLDivElement | null>(null);
+
+  // Header links can change the section/search while Next.js keeps this client
+  // component mounted. Accept that navigation without resetting filters when
+  // the incoming URL merely confirms our own debounced router.replace.
+  const incomingUrl = buildCatalogUrl({
+    section: initialFolder ? "folder" : initialSection,
+    folderId: initialFolder?.id ?? null,
+    search: initialSearch,
+    sort: isSortOption(initialSort) ? initialSort : DEFAULT_CATALOG_SORT,
+    inStock: initialOnlyInStock,
+    priceFrom: initialPriceFrom,
+    priceTo: initialPriceTo,
+    page: initialPage,
+  });
+  const [previousSelection, setPreviousSelection] = useState(incomingUrl);
+  const [synchronizedUrl, setSynchronizedUrl] = useState<string | null>(null);
+  if (incomingUrl !== previousSelection) {
+    setPreviousSelection(incomingUrl);
+    setSynchronizedUrl(null);
+    const nextSection = initialFolder ? "folder" : initialSection;
+    if (incomingUrl !== synchronizedUrl) {
+      if (activeSection !== nextSection || activeFolder?.id !== initialFolder?.id || searchQuery !== initialSearch) setAttributeFilters({});
+      setActiveSection(nextSection);
+      setActiveFolder(initialFolder);
+      setSearchQuery(initialSearch);
+      setSortOption(isSortOption(initialSort) ? initialSort : DEFAULT_CATALOG_SORT);
+      setOnlyInStock(initialOnlyInStock);
+      setPriceFrom(initialPriceFrom);
+      setPriceTo(initialPriceTo);
+      setItems(initialItems);
+      if (!initialFolder) setAllItems(initialItems);
+      setLoading(false);
+      setCurrentPage(initialPage);
+    }
+  }
+
+  useEffect(() => {
+    // An external navigation supersedes any pending request for the old folder.
+    if (!loading) abortRef.current?.abort();
+  }, [incomingUrl, loading]);
+
+  if (initialPage !== previousInitialPage) {
+    setPreviousInitialPage(initialPage);
+    setCurrentPage(initialPage);
+  }
+
+  const loadByFolder = useCallback(async (folder: MoyskladProductFolder) => {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/moysklad/by-folder?folderHref=${encodeURIComponent(folder.meta.href)}&limit=1000&slim=1`,
+        { signal: controller.signal }
+      );
+      if (!res.ok) throw new Error("Ошибка загрузки");
+      const data = await res.json();
+      if (controller.signal.aborted) return;
+      setItems(data.rows ?? []);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setItems([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadAllItems = useCallback(async () => {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/moysklad/assortment?limit=1000&slim=1`, { signal: controller.signal });
+      if (!res.ok) throw new Error("Ошибка загрузки");
+      const data = await res.json();
+      if (controller.signal.aborted) return;
+      const rows = data.rows ?? [];
+      setAllItems(rows);
+      setItems(rows);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setItems([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleFolderClick = (folder: MoyskladProductFolder) => {
+    setCurrentPage(1);
+    setActiveSection("folder");
+    setActiveFolder(folder);
+    loadByFolder(folder);
+  };
+
+
+  const handleShowAll = () => {
+    setCurrentPage(1);
+    if (abortRef.current) abortRef.current.abort();
+    setActiveSection("all");
+    setActiveFolder(null);
+    if (allItems.length) {
+      setItems(allItems);
+      return;
+    }
+    loadAllItems();
+  };
+
+  const handleShowPromo = () => {
+    setCurrentPage(1);
+    if (abortRef.current) abortRef.current.abort();
+    setLoading(false);
+    setActiveSection("promo");
+    setActiveFolder(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
+  // Держим адрес страницы в соответствии с выбранным разделом, поиском и фильтрами,
+  // используя именно router.replace (а не "тихую" history.replaceState) — Next.js
+  // кэширует RSC-пейлоад для текущей записи истории и именно его переиспользует при
+  // нажатии "назад" в браузере. Если не обновлять URL через сам роутер, кнопка "назад"
+  // покажет тот пейлоад, что был закэширован при первом заходе на /catalog (то есть
+  // "все товары"), полностью игнорируя выбранный раздел и фильтры.
+  const router = useRouter();
+  const isFirstUrlSyncRef = useRef(true);
+  useEffect(() => {
+    const url = buildCatalogUrl({
+      section: activeSection,
+      folderId: activeFolder?.id ?? null,
+      search: searchQuery,
+      sort: sortOption,
+      inStock: onlyInStock,
+      priceFrom,
+      priceTo,
+      page: currentPage,
+    });
+
+    // На самом первом рендере адрес уже соответствует переданным initial*-пропсам —
+    // не нужно сразу же дёргать роутер повторным запросом.
+    if (isFirstUrlSyncRef.current) {
+      isFirstUrlSyncRef.current = false;
+      return;
+    }
+    // A header navigation already supplied this URL. Replacing it again after
+    // the debounce could overwrite a subsequent click on another header link.
+    if (url === incomingUrl) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setSynchronizedUrl(url);
+      router.replace(url, { scroll: false });
+    }, 400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, currentPage, router, incomingUrl]);
+
+  // Фильтры характеристик сбрасываем только при смене раздела, а не при
+  // обновлении статистики/цен того же списка или смене страницы.
+  const filterContext = `${activeSection}:${activeFolder?.id ?? ""}`;
+  const [previousFilterContext, setPreviousFilterContext] = useState(filterContext);
+  if (filterContext !== previousFilterContext) {
+    setPreviousFilterContext(filterContext);
+    setAttributeFilters({});
+  }
+
+  const availableAttributeFacets = useMemo(() => {
+    const facets = new Map<string, Set<string>>();
+    for (const item of items) {
+      for (const attribute of item.attributes) {
+        if (!facets.has(attribute.name)) facets.set(attribute.name, new Set());
+        facets.get(attribute.name)!.add(attribute.value);
+      }
+    }
+    return Array.from(facets.entries()).map(([name, values]) => ({
+      name,
+      values: Array.from(values).sort((a, b) => a.localeCompare(b, "ru")),
+    }));
+  }, [items]);
+
+  const toggleAttributeFilter = (attributeName: string, value: string) => {
+    setCurrentPage(1);
+    setAttributeFilters((prev) => {
+      const next = { ...prev };
+      const current = new Set(next[attributeName] ?? []);
+      if (current.has(value)) {
+        current.delete(value);
+      } else {
+        current.add(value);
+      }
+      if (current.size === 0) {
+        delete next[attributeName];
+      } else {
+        next[attributeName] = current;
+      }
+      return next;
+    });
+  };
+
+  const activeFilterCount =
+    Object.values(attributeFilters).reduce((sum, values) => sum + values.size, 0) +
+    (onlyInStock ? 1 : 0) +
+    (priceFrom ? 1 : 0) +
+    (priceTo ? 1 : 0);
+
+  const resetFilters = () => {
+    setCurrentPage(1);
+    setAttributeFilters({});
+    setOnlyInStock(false);
+    setPriceFrom("");
+    setPriceTo("");
+    setSearchQuery("");
+  };
+
+  const visibleItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const minPrice = priceFrom ? Number(priceFrom) * 100 : null;
+    const maxPrice = priceTo ? Number(priceTo) * 100 : null;
+
+    const filtered = items.filter((item) => {
+      if (query) {
+        const attributeValues = item.attributes.map((attribute) => attribute.value).join(" ");
+        const haystack = `${item.name} ${item.article ?? ""} ${item.code ?? ""} ${attributeValues}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+
+      if (onlyInStock && !(item.quantity && item.quantity > 0)) return false;
+
+      const price = item.salePrices?.[0]?.value;
+      if (minPrice != null && (price == null || price < minPrice)) return false;
+      if (maxPrice != null && (price == null || price > maxPrice)) return false;
+
+      for (const [attributeName, allowedValues] of Object.entries(attributeFilters)) {
+        if (allowedValues.size === 0) continue;
+        const itemValue = item.attributes.find((attribute) => attribute.name === attributeName)?.value;
+        if (!itemValue || !allowedValues.has(itemValue)) return false;
+      }
+
+      return true;
+    });
+
+    const sorted = sortCatalogItems(filtered, sortOption);
+
+    return sorted;
+  }, [items, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, attributeFilters]);
+
+  const paginatedItemCount = activeSection === "promo" ? initialPromoItems.length : visibleItems.length;
+  const totalPages = Math.max(1, Math.ceil(paginatedItemCount / PRODUCTS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+
+  if (safeCurrentPage !== currentPage) {
+    setCurrentPage(safeCurrentPage);
+  }
+
+  const pageStartIndex = (safeCurrentPage - 1) * PRODUCTS_PER_PAGE;
+  const paginatedItems = useMemo(
+    () => visibleItems.slice(pageStartIndex, pageStartIndex + PRODUCTS_PER_PAGE),
+    [visibleItems, pageStartIndex]
+  );
+  const paginatedPromoItems = useMemo(
+    () => initialPromoItems.slice(pageStartIndex, pageStartIndex + PRODUCTS_PER_PAGE),
+    [initialPromoItems, pageStartIndex]
+  );
+
+  const handlePageChange = (page: number) => {
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
+    if (nextPage === safeCurrentPage) return;
+    setCurrentPage(nextPage);
+    window.requestAnimationFrame(() => {
+      catalogTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const getPageUrl = (page: number) => buildCatalogUrl({
+    section: activeSection,
+    folderId: activeFolder?.id ?? null,
+    search: searchQuery,
+    sort: sortOption,
+    inStock: onlyInStock,
+    priceFrom,
+    priceTo,
+    page,
+  });
+
+  // Рекурсивный список подкатегорий для десктопного сайдбара — раскрыт всегда, поддерживает
+  // любую глубину вложенности (в МойСклад встречаются папки на 3 уровня: раздел → категория → подкатегория).
+  const renderFolderChildren = (parentHref: string, depth: number) => {
+    const children = childrenByParent.get(parentHref) ?? [];
+    if (children.length === 0) return null;
+    return (
+      <ul className="border-l border-slate-100 pb-1 pl-4">
+        {children.map((child) => (
+          <li key={child.id}>
+            <button
+              type="button"
+              onClick={() => handleFolderClick(child)}
+              className={`flex w-full items-center gap-2 py-2 pl-4 pr-2 text-left text-[13px] transition ${
+                activeSection === "folder" && activeFolder?.id === child.id
+                  ? "font-semibold text-amber-700"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+              <span className="leading-tight">{child.name}</span>
+            </button>
+            {renderFolderChildren(child.meta.href, depth + 1)}
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  return (
+    <div className="flex min-h-[400px] flex-col md:items-start md:flex-row md:gap-0">
+      {/* Sidebar групп — горизонтальный скролл на мобильных, вертикальный на md+ */}
+      <aside className="w-full shrink-0 border-b border-slate-200 bg-white md:sticky md:top-16 md:max-h-[calc(100dvh-4rem)] md:w-56 md:self-start md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r lg:w-64">
+        {/* Мобильный вид: горизонтальные кнопки-чипы, подкатегории раскрываются под выбранным разделом */}
+        <div className="border-b border-slate-100 md:hidden">
+          <div className="flex gap-2 overflow-x-auto px-3 py-3">
+            <button
+              type="button"
+              onClick={handleShowAll}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                activeSection === "all" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              Все
+            </button>
+            <button
+              type="button"
+              onClick={handleShowPromo}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                activeSection === "promo" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              Акции
+            </button>
+            {rootFolders.map((folder) => {
+              const children = childrenByParent.get(folder.meta.href) ?? [];
+              const isActiveRoot = activeSection === "folder" && activePath[0]?.id === folder.id;
+              return (
+                <button
+                  key={folder.id}
+                  type="button"
+                  onClick={() => handleFolderClick(folder)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    isActiveRoot ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {folder.name}
+                  {children.length > 0 && <span className="ml-1 opacity-70">▾</span>}
+                </button>
+              );
+            })}
+          </div>
+          {/* Дополнительные ряды чипов на каждый уровень вложенности активного пути —
+              так подкатегории любой глубины (раздел → категория → подкатегория) остаются доступны. */}
+          {activePath.map((node, level) => {
+            const children = childrenByParent.get(node.meta.href) ?? [];
+            if (children.length === 0) return null;
+            return (
+              <div key={node.id} className="flex gap-2 overflow-x-auto border-t border-slate-100 bg-slate-50 px-3 py-2.5">
+                {children.map((child) => {
+                  const childChildren = childrenByParent.get(child.meta.href) ?? [];
+                  const isActiveChild = activeSection === "folder" && activePath[level + 1]?.id === child.id;
+                  return (
+                    <button
+                      key={child.id}
+                      type="button"
+                      onClick={() => handleFolderClick(child)}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                        isActiveChild
+                          ? "bg-amber-500 text-white"
+                          : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200"
+                      }`}
+                    >
+                      {child.name}
+                      {childChildren.length > 0 && <span className="ml-1 opacity-70">▾</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+        {/* Десктоп: вертикальный список */}
+        <div className="hidden md:block">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Группы товаров</p>
+          </div>
+          <ul className="py-2">
+            <li>
+              <button
+                type="button"
+                onClick={handleShowAll}
+                className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
+                  activeSection === "all"
+                    ? "bg-amber-50 font-semibold text-amber-700"
+                    : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                Все товары
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={handleShowPromo}
+                className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
+                  activeSection === "promo"
+                    ? "bg-amber-50 font-semibold text-amber-700"
+                    : "text-slate-700 hover:bg-amber-50 hover:text-amber-700"
+                }`}
+              >
+                <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l2.2 4.46 4.92.72-3.56 3.47.84 4.9L12 14.23l-4.4 2.32.84-4.9-3.56-3.47 4.92-.72L12 3z" />
+                </svg>
+                Акции
+              </button>
+            </li>
+            {rootFolders.map((folder) => (
+              <li key={folder.id}>
+                <button
+                  type="button"
+                  onClick={() => handleFolderClick(folder)}
+                  className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition ${
+                    activeSection === "folder" && activeFolder?.id === folder.id
+                      ? "bg-amber-50 font-semibold text-amber-700"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h3.586a1 1 0 01.707.293L10.414 6.5A1 1 0 0011.121 7H19a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                  </svg>
+                  <span className="leading-tight">{folder.name}</span>
+                </button>
+                {renderFolderChildren(folder.meta.href, 1)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+
+      {/* Область товаров */}
+      <div ref={catalogTopRef} className="min-w-0 flex-1 scroll-mt-20 self-start bg-stone-50 p-3 sm:p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              {activeSection === "promo" ? "Акции" : activeFolder ? activeFolder.name : "Все товары"}
+            </h2>
+            <p className="text-sm text-slate-400">
+              {loading
+                ? "Загрузка..."
+                : `${activeSection === "promo" ? initialPromoItems.length : visibleItems.length} товаров`}
+            </p>
+          </div>
+          {loading && (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          )}
+        </div>
+
+        {activeSection !== "promo" && (
+          <div className="mb-5 space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <circle cx="11" cy="11" r="7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setCurrentPage(1);
+                    setSearchQuery(event.target.value);
+                  }}
+                  placeholder="Поиск по названию, артикулу..."
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-amber-400"
+                />
+              </div>
+              <select
+                value={sortOption}
+                onChange={(event) => {
+                  setCurrentPage(1);
+                  setSortOption(event.target.value as SortOption);
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-400"
+              >
+                {Object.entries(SORT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((prev) => !prev)}
+                className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                  filtersOpen || activeFilterCount > 0
+                    ? "border-amber-400 bg-amber-50 text-amber-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-amber-300"
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h18M6 12h12M10 19h4" />
+                </svg>
+                Фильтр
+                {activeFilterCount > 0 && (
+                  <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {filtersOpen && (
+              <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:gap-6">
+                <div className="min-w-[160px]">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Цена, ₽</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={priceFrom}
+                      onChange={(event) => {
+                        setCurrentPage(1);
+                        setPriceFrom(event.target.value);
+                      }}
+                      placeholder="От"
+                      className="w-20 rounded-md border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-amber-400"
+                    />
+                    <span className="text-slate-400">—</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={priceTo}
+                      onChange={(event) => {
+                        setCurrentPage(1);
+                        setPriceTo(event.target.value);
+                      }}
+                      placeholder="До"
+                      className="w-20 rounded-md border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="min-w-[160px]">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Наличие</p>
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={onlyInStock}
+                      onChange={(event) => {
+                        setCurrentPage(1);
+                        setOnlyInStock(event.target.checked);
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                    />
+                    Только в наличии
+                  </label>
+                </div>
+
+                {availableAttributeFacets.map((facet) => (
+                  <div key={facet.name} className="min-w-[160px]">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">{facet.name}</p>
+                    <div className="flex max-h-32 flex-col gap-1.5 overflow-y-auto pr-1">
+                      {facet.values.map((value) => (
+                        <label key={value} className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={attributeFilters[facet.name]?.has(value) ?? false}
+                            onChange={() => toggleAttributeFilter(facet.name, value)}
+                            className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                          />
+                          {value}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="self-start text-sm font-semibold text-amber-600 hover:text-amber-700 sm:ml-auto sm:self-end"
+                  >
+                    Сбросить фильтры
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSection === "promo" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {initialPromoItems.length === 0 && !loading && (
+              <div className="col-span-full flex h-48 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <p className="text-sm text-slate-400">Пока нет активных акций</p>
+              </div>
+            )}
+            {paginatedPromoItems.map(({ promoId, item, oldPrice, discount }) => {
+              const price = item.salePrices?.[0]?.value;
+              const galleryUrls = getItemGalleryThumbnailUrls(item);
+              return (
+                <Link
+                  key={promoId}
+                  href={`/catalog/${item.id}`}
+                  prefetch={false}
+                  className="flex flex-col justify-between overflow-hidden rounded-xl border border-amber-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                >
+                  <div>
+                    <div className="relative mb-4 overflow-hidden rounded-lg bg-white">
+                      <ProductFavoriteToggle item={item} imageUrl={galleryUrls[0] ?? null} size="sm" className="absolute right-2 top-2 z-10" />
+                      {discount != null && (
+                        <span className="absolute left-2 top-2 z-10 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow">−{discount}%</span>
+                      )}
+                      <div className="relative aspect-[4/3] w-full">
+                        <ProductCardMedia images={galleryUrls} alt={item.name} />
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-600">Акция</p>
+                    <p className="mt-1 font-semibold leading-snug text-slate-900">{item.name}</p>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        {formatPrice(price) && <p className="text-base font-bold text-amber-600">{formatPrice(price)}</p>}
+                        {oldPrice != null && <p className="text-xs text-slate-400 line-through">{formatPrice(oldPrice)}</p>}
+                      </div>
+                      {item.quantity != null && <p className="text-xs text-slate-500">В наличии: {item.quantity}</p>}
+                    </div>
+                    <ProductCartControl item={item} size="sm" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            {visibleItems.length === 0 && !loading && (
+              <div className="flex h-48 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <p className="text-sm text-slate-400">
+                  {items.length === 0 ? "Товаров в этой группе нет" : "Ничего не найдено по заданным условиям"}
+                </p>
+              </div>
+            )}
+
+            <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity duration-200 ${loading ? "opacity-50" : "opacity-100"}`}>
+              {paginatedItems.map((item) => {
+                const price = item.salePrices?.[0]?.value;
+                const groupLabel = item.groupLabel;
+                const subgroupLabel = item.subgroupLabel;
+                const galleryUrls = item.galleryThumbnails;
+                return (
+                  <Link
+                    key={item.id}
+                    href={`/catalog/${item.id}`}
+                    // В каталоге одновременно видно/рядом много карточек - без prefetch={false}
+                    // Next.js тихо предзагружал бы карточку товара (и, соответственно, запрос
+                    // к МойСклад) для каждой из них, что и приводило к перегрузке лимита API.
+                    prefetch={false}
+                    className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow-md"
+                  >
+                    <div>
+                      <div className="relative mb-4 overflow-hidden rounded-lg bg-white">
+                        <ProductFavoriteToggle
+                          item={item}
+                          imageUrl={galleryUrls[0] ?? null}
+                          size="sm"
+                          className="absolute right-2 top-2 z-10"
+                        />
+                        <div className="relative aspect-[4/3] w-full">
+                          <ProductCardMedia images={galleryUrls} alt={item.name} />
+                        </div>
+                      </div>
+                      {groupLabel && (
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{groupLabel}</p>
+                      )}
+                      <p className="font-semibold leading-snug text-slate-900">{item.name}</p>
+                      {item.article && (
+                        <p className="mt-1 text-xs text-slate-400">Арт: {item.article}</p>
+                      )}
+                      {item.code && (
+                        <p className="text-xs text-slate-400">Код: {item.code}</p>
+                      )}
+                      {subgroupLabel && (
+                        <p className="mt-1 text-xs font-semibold text-amber-600">{subgroupLabel}</p>
+                      )}
+                    </div>
+                    <div className="mt-4 flex items-end justify-between">
+                      <div>
+                        {formatPrice(price) ? (
+                          <p className="text-base font-bold text-amber-600">{formatPrice(price)}</p>
+                        ) : (
+                          <p className="text-xs text-slate-400">Цена по запросу</p>
+                        )}
+                        {item.quantity != null && (
+                          <p className="text-xs text-slate-500">В наличии: {item.quantity}</p>
+                        )}
+                      </div>
+                      <ProductCartControl item={item} size="sm" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+          </>
+        )}
+
+        {totalPages > 1 && (
+          <nav aria-label="Навигация по страницам каталога" className="mt-8 flex flex-col items-center gap-3">
+            <p className="text-xs text-slate-500">
+              Товары {pageStartIndex + 1}–
+              {Math.min(pageStartIndex + PRODUCTS_PER_PAGE, paginatedItemCount)} из {paginatedItemCount}
+            </p>
+            <div className="flex max-w-full items-center justify-center gap-2">
+              {safeCurrentPage === 1 ? (
+                <span aria-label="Предыдущая страница" aria-disabled="true" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-40">
+                  <span aria-hidden="true">←</span>
+                </span>
+              ) : (
+                <Link
+                  href={getPageUrl(safeCurrentPage - 1)}
+                  prefetch={false}
+                  rel="prev"
+                  onNavigate={(event) => {
+                    event.preventDefault();
+                    handlePageChange(safeCurrentPage - 1);
+                  }}
+                  aria-label="Предыдущая страница"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600"
+                >
+                  <span aria-hidden="true">←</span>
+                </Link>
+              )}
+              <div className="hidden items-center gap-2 sm:flex">
+                {getPaginationItems(safeCurrentPage, totalPages).map((item) =>
+                  typeof item === "number" ? (
+                    <Link
+                      key={item}
+                      href={getPageUrl(item)}
+                      prefetch={false}
+                      onNavigate={(event) => {
+                        event.preventDefault();
+                        handlePageChange(item);
+                      }}
+                      aria-label={`Страница ${item}`}
+                      aria-current={item === safeCurrentPage ? "page" : undefined}
+                      className={`flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-sm font-semibold transition ${
+                        item === safeCurrentPage
+                          ? "bg-amber-500 text-white shadow-sm"
+                          : "border border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-amber-600"
+                      }`}
+                    >
+                      {item}
+                    </Link>
+                  ) : (
+                    <span key={item} className="px-1 text-slate-400" aria-hidden="true">
+                      …
+                    </span>
+                  )
+                )}
+              </div>
+              <span className="min-w-28 text-center text-sm font-semibold text-slate-700 sm:hidden">
+                Страница {safeCurrentPage} из {totalPages}
+              </span>
+              {safeCurrentPage === totalPages ? (
+                <span aria-label="Следующая страница" aria-disabled="true" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-40">
+                  <span aria-hidden="true">→</span>
+                </span>
+              ) : (
+                <Link
+                  href={getPageUrl(safeCurrentPage + 1)}
+                  prefetch={false}
+                  rel="next"
+                  onNavigate={(event) => {
+                    event.preventDefault();
+                    handlePageChange(safeCurrentPage + 1);
+                  }}
+                  aria-label="Следующая страница"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-amber-300 hover:text-amber-600"
+                >
+                  <span aria-hidden="true">→</span>
+                </Link>
+              )}
+            </div>
+          </nav>
+        )}
+      </div>
+    </div>
+  );
+}
