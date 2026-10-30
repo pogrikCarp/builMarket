@@ -6,6 +6,7 @@ import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle";
 import ProductGallery from "@/components/ProductGallery";
 import ProductInterestTracker from "@/components/catalog/ProductInterestTracker";
+import CatalogBackLink from "@/components/catalog/CatalogBackLink";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/JsonLd";
@@ -13,6 +14,8 @@ import { formatAttributeValue, getItemGalleryUrls } from "@/lib/moysklad";
 import { getCatalogFolders, getCatalogProduct } from "@/lib/catalog-db";
 import { getFolderPath } from "@/lib/folder-tree";
 import { buildBreadcrumbJsonLd, buildMetadata, buildProductJsonLd } from "@/lib/seo";
+
+export const dynamic = "force-dynamic";
 
 function formatPrice(value?: number) {
   if (value == null) return null;
@@ -115,19 +118,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <SiteHeader />
 
       <main className="mx-auto min-w-0 max-w-7xl px-4 py-6 [overflow-wrap:anywhere] sm:py-8">
-        <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
+        <nav aria-label="Путь по каталогу" className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
+          <Link href="/" className="hover:text-amber-600">Главная</Link><span aria-hidden="true">/</span>
           <Link href="/catalog" prefetch={false} className="hover:text-amber-600">Каталог</Link>
           {folderPath.map((folder) => (
             <span key={folder.id} className="flex min-w-0 max-w-full items-start gap-1.5">
               <span className="shrink-0">/</span>
-              <Link href={`/catalog?folder=${folder.id}`} prefetch={false} className="min-w-0 hover:text-amber-600">{folder.name}</Link>
+              <Link href={`/catalog?folder=${folder.id}${foldersResult.rows.some(child => child.productFolder?.meta.href === folder.meta.href) ? "&view=categories" : ""}`} prefetch={false} className="min-w-0 hover:text-amber-600">{folder.name}</Link>
             </span>
           ))}
           <span className="flex min-w-0 max-w-full items-start gap-1.5">
             <span className="shrink-0">/</span>
-            <span className="min-w-0 text-slate-700">{item.name}</span>
+            <Link href={`/catalog/${id}`} prefetch={false} aria-current="page" className="min-w-0 text-slate-700 hover:text-amber-600">{item.name}</Link>
           </span>
         </nav>
+
+        <CatalogBackLink productId={id} fallback={immediateFolderId ? `/catalog?folder=${immediateFolderId}` : "/catalog"} />
 
         <div className="grid min-w-0 grid-cols-1 gap-6 sm:gap-10 lg:grid-cols-2">
           <ProductGallery images={images} alt={item.name} />

@@ -12,6 +12,8 @@ import type { ResolvedPromoItem } from "@/lib/promo";
 import ProductCardMedia from "@/components/catalog/ProductCardMedia";
 import { CatalogDirectory } from "@/components/catalog/CatalogNavigation";
 import CatalogFilterDialog from "@/components/catalog/CatalogFilterDialog";
+import useCatalogReturn from "@/components/catalog/useCatalogReturn";
+import { parseAttributeFilters, serializeAttributeFilters } from "@/lib/catalog-return";
 import { ChevronRightIcon, MagnifyingGlassIcon, Squares2X2Icon, AdjustmentsHorizontalIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import styles from "@/components/catalog/Catalog.module.css";
 import {
@@ -79,7 +81,8 @@ type Props = {
   initialPriceFrom?: string;
   initialPriceTo?: string;
   initialPage?: number;
-  initialView?: "products";
+  initialView?: "products" | "categories";
+  initialAttributes?: string;
   initialPromoItems?: ResolvedPromoItem[];
 };
 
@@ -95,16 +98,25 @@ function buildCatalogUrl(state: {
   priceTo: string;
   page: number;
   showProducts?: boolean;
+  directoryFolderId?: string | null;
+  attributes?: string;
 }): string {
   const params = new URLSearchParams();
   const trimmedSearch = state.search.trim();
 
-  if (trimmedSearch) {
+  if (state.showProducts === false) {
+    if (state.directoryFolderId) {
+      params.set("folder", state.directoryFolderId);
+      params.set("view", "categories");
+    }
+    return `/catalog${params.size ? `?${params}` : ""}`;
+  } else if (trimmedSearch) {
     params.set("q", trimmedSearch);
   } else if (state.section === "promo") {
     params.set("section", "promo");
   } else if (state.section === "folder" && state.folderId) {
     params.set("folder", state.folderId);
+    if (state.showProducts) params.set("view", "products");
   } else if (state.showProducts) {
     params.set("view", "products");
   }
@@ -114,6 +126,7 @@ function buildCatalogUrl(state: {
   if (state.priceFrom) params.set("priceFrom", state.priceFrom);
   if (state.priceTo) params.set("priceTo", state.priceTo);
   if (state.page > 1) params.set("page", String(state.page));
+  if (state.attributes) params.set("attributes", state.attributes);
 
   const query = params.toString();
   return `/catalog${query ? `?${query}` : ""}`;
@@ -131,6 +144,7 @@ export default function MobileCatalogBrowser({
   initialPriceTo = "",
   initialPage = 1,
   initialView,
+  initialAttributes,
   initialPromoItems = [],
 }: Props) {
   const initialFolder = useMemo(
@@ -139,11 +153,11 @@ export default function MobileCatalogBrowser({
   );
   const { childrenByParent } = useMemo(() => buildFolderTree(folders), [folders]);
   const [activeFolder, setActiveFolder] = useState<MoyskladProductFolder | null>(initialFolder);
-  const initialDirectoryOpen = !initialFolder && initialSection === "all" && !initialSearch &&
+  const initialDirectoryOpen = initialView === "categories" || ((!initialFolder || Boolean(childrenByParent.get(initialFolder.meta.href)?.length)) && initialSection === "all" && !initialSearch && !initialAttributes &&
     !initialOnlyInStock && !initialPriceFrom && !initialPriceTo &&
-    (!initialSort || initialSort === DEFAULT_CATALOG_SORT) && initialPage === 1 && initialView !== "products";
+    (!initialSort || initialSort === DEFAULT_CATALOG_SORT) && initialPage === 1 && initialView !== "products");
   const [directoryOpen, setDirectoryOpen] = useState(initialDirectoryOpen);
-  const [navigationFolder, setNavigationFolder] = useState<MoyskladProductFolder | null>(null);
+  const [navigationFolder, setNavigationFolder] = useState<MoyskladProductFolder | null>(initialDirectoryOpen ? initialFolder : null);
   // Полная цепочка предков активной папки (раздел → категория → подкатегория...) —
   // нужна, чтобы на любом уровне вложенности подсвечивать и раскрывать правильный путь,
   // а не только раздел + один уровень подкатегорий.
@@ -175,7 +189,7 @@ export default function MobileCatalogBrowser({
   const [onlyInStock, setOnlyInStock] = useState(initialOnlyInStock);
   const [priceFrom, setPriceFrom] = useState(initialPriceFrom);
   const [priceTo, setPriceTo] = useState(initialPriceTo);
-  const [attributeFilters, setAttributeFilters] = useState<Record<string, Set<string>>>({});
+  const [attributeFilters, setAttributeFilters] = useState(() => parseAttributeFilters(initialAttributes));
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [previousInitialPage, setPreviousInitialPage] = useState(initialPage);
@@ -203,7 +217,9 @@ export default function MobileCatalogBrowser({
     priceFrom: initialPriceFrom,
     priceTo: initialPriceTo,
     page: initialPage,
-    showProducts: initialView === "products",
+    showProducts: !initialDirectoryOpen,
+    directoryFolderId: initialFolder?.id,
+    attributes: serializeAttributeFilters(parseAttributeFilters(initialAttributes)),
   });
   const [previousSelection, setPreviousSelection] = useState(incomingUrl);
   const [synchronizedUrl, setSynchronizedUrl] = useState<string | null>(null);
@@ -212,9 +228,9 @@ export default function MobileCatalogBrowser({
     setSynchronizedUrl(null);
     const nextSection = initialFolder ? "folder" : initialSection;
     if (incomingUrl !== synchronizedUrl) {
-      if (activeSection !== nextSection || activeFolder?.id !== initialFolder?.id || searchQuery !== initialSearch) setAttributeFilters({});
+      setAttributeFilters(parseAttributeFilters(initialAttributes));
       setDirectoryOpen(initialDirectoryOpen);
-      setNavigationFolder(null);
+      setNavigationFolder(initialDirectoryOpen ? initialFolder : null);
       setActiveSection(nextSection);
       setActiveFolder(initialFolder);
       setSearchQuery(initialSearch);
@@ -287,6 +303,7 @@ export default function MobileCatalogBrowser({
   }, []);
 
   const handleFolderClick = (folder: MoyskladProductFolder) => {
+    setAttributeFilters({});
     setDirectoryOpen(false);
     setSearchQuery("");
     setCurrentPage(1);
@@ -297,6 +314,7 @@ export default function MobileCatalogBrowser({
 
 
   const handleShowAll = () => {
+    setAttributeFilters({});
     setDirectoryOpen(false);
     setSearchQuery("");
     setCurrentPage(1);
@@ -311,6 +329,7 @@ export default function MobileCatalogBrowser({
   };
 
   const handleShowPromo = () => {
+    setAttributeFilters({});
     setDirectoryOpen(false);
     setSearchQuery("");
     setCurrentPage(1);
@@ -333,19 +352,15 @@ export default function MobileCatalogBrowser({
   // покажет тот пейлоад, что был закэширован при первом заходе на /catalog (то есть
   // "все товары"), полностью игнорируя выбранный раздел и фильтры.
   const router = useRouter();
+  const catalogUrl = buildCatalogUrl({ section: activeSection, folderId: activeFolder?.id ?? null,
+    search: searchQuery, sort: sortOption, inStock: onlyInStock, priceFrom, priceTo, page: currentPage,
+    showProducts: !directoryOpen, directoryFolderId: navigationFolder?.id,
+    attributes: serializeAttributeFilters(attributeFilters) });
+  const { leaving, navigateToProduct } = useCatalogReturn({ url: catalogUrl, incomingUrl, ready: !loading && !directoryOpen,
+    synchronize: (url) => { setSynchronizedUrl(url); router.replace(url, { scroll: false }); } });
   const isFirstUrlSyncRef = useRef(true);
   useEffect(() => {
-    const url = buildCatalogUrl({
-      section: activeSection,
-      folderId: activeFolder?.id ?? null,
-      search: searchQuery,
-      sort: sortOption,
-      inStock: onlyInStock,
-      priceFrom,
-      priceTo,
-      page: currentPage,
-      showProducts: !directoryOpen,
-    });
+    const url = catalogUrl;
 
     // На самом первом рендере адрес уже соответствует переданным initial*-пропсам —
     // не нужно сразу же дёргать роутер повторным запросом.
@@ -355,24 +370,19 @@ export default function MobileCatalogBrowser({
     }
     // A header navigation already supplied this URL. Replacing it again after
     // the debounce could overwrite a subsequent click on another header link.
-    if (url === incomingUrl) return;
+    if (url === incomingUrl || leaving.current) return;
 
     const timeoutId = window.setTimeout(() => {
+      if (leaving.current) return;
       setSynchronizedUrl(url);
       router.replace(url, { scroll: false });
     }, 400);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, currentPage, directoryOpen, router, incomingUrl]);
+  }, [catalogUrl, router, incomingUrl, leaving]);
 
   // Фильтры характеристик сбрасываем только при смене раздела, а не при
   // обновлении статистики/цен того же списка или смене страницы.
-  const filterContext = `${activeSection}:${activeFolder?.id ?? ""}`;
-  const [previousFilterContext, setPreviousFilterContext] = useState(filterContext);
-  if (filterContext !== previousFilterContext) {
-    setPreviousFilterContext(filterContext);
-    setAttributeFilters({});
-  }
 
   const availableAttributeFacets = useMemo(() => {
     const facets = new Map<string, Set<string>>();
@@ -491,9 +501,18 @@ export default function MobileCatalogBrowser({
     priceTo,
     page,
     showProducts: !directoryOpen,
+    directoryFolderId: navigationFolder?.id,
+    attributes: serializeAttributeFilters(attributeFilters),
   });
 
   const openDirectory = (folder: MoyskladProductFolder | null) => {
+    setSortOption(DEFAULT_CATALOG_SORT);
+    setSearchQuery("");
+    setCurrentPage(1);
+    setOnlyInStock(false);
+    setPriceFrom("");
+    setPriceTo("");
+    setAttributeFilters({});
     setNavigationFolder(folder);
     setDirectoryOpen(true);
     setFiltersOpen(false);
@@ -505,15 +524,17 @@ export default function MobileCatalogBrowser({
     onAll: handleShowAll, onPromo: handleShowPromo,
   };
   const subcategories = activeFolder ? childrenByParent.get(activeFolder.meta.href) ?? [] : [];
+  const breadcrumbPath = directoryOpen ? (navigationFolder ? getFolderPath(navigationFolder, folders) : []) : activePath;
 
   return (
-    <div ref={catalogTopRef} className={styles.catalog}>
+    <div ref={catalogTopRef} data-catalog-view="mobile" className={styles.catalog}>
       <nav className={styles.breadcrumbs} aria-label="Путь по каталогу">
         <Link href="/">Главная</Link><ChevronRightIcon className={styles.chevron} aria-hidden="true" />
-        <button type="button" onClick={() => openDirectory(null)}>Каталог</button>
-        {!directoryOpen && activePath.map((folder) => <span key={folder.id} className="contents">
+        <Link href="/catalog" prefetch={false} onNavigate={(event) => { event.preventDefault(); openDirectory(null); }}>Каталог</Link>
+        {breadcrumbPath.map((folder) => <span key={folder.id} className="contents">
           <ChevronRightIcon className={styles.chevron} aria-hidden="true" />
-          <button type="button" onClick={() => openDirectory(folder)}>{folder.name}</button>
+          <Link href={`/catalog?folder=${folder.id}${childrenByParent.get(folder.meta.href)?.length ? "&view=categories" : ""}`} prefetch={false}
+            onNavigate={(event) => { event.preventDefault(); if (childrenByParent.get(folder.meta.href)?.length) openDirectory(folder); else handleFolderClick(folder); }}>{folder.name}</Link>
         </span>)}
       </nav>
       <div className={styles.heading}>
@@ -674,6 +695,8 @@ export default function MobileCatalogBrowser({
                 <Link
                   key={promoId}
                   href={`/catalog/${item.id}`}
+                  id={`catalog-product-${item.id}`}
+                  onNavigate={(event) => navigateToProduct(event, item.id)}
                   prefetch={false}
                   className="flex flex-col justify-between overflow-hidden rounded-xl border border-amber-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
@@ -724,6 +747,8 @@ export default function MobileCatalogBrowser({
                   <Link
                     key={item.id}
                     href={`/catalog/${item.id}`}
+                    id={`catalog-product-${item.id}`}
+                    onNavigate={(event) => navigateToProduct(event, item.id)}
                     // В каталоге одновременно видно/рядом много карточек - без prefetch={false}
                     // Next.js тихо предзагружал бы карточку товара (и, соответственно, запрос
                     // к МойСклад) для каждой из них, что и приводило к перегрузке лимита API.

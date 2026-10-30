@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import MediaImage from "@/components/MediaImage";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import SiteFooter from "@/components/SiteFooter";
@@ -7,11 +7,11 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/JsonLd";
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import ProductCardMedia from "@/components/catalog/ProductCardMedia";
-import { BRANDS, getBrandBySlug } from "@/lib/brands";
-import { getCatalogAssortment } from "@/lib/catalog-db";
+import { getPublishedBrand, brandSummary } from "@/lib/brand-profiles";
+import { getCatalogAssortment, getCatalogItemsByIds } from "@/lib/catalog-db";
 import type { MoyskladAssortmentItem } from "@/lib/moysklad";
 import { getItemGalleryThumbnailUrls } from "@/lib/moysklad-format";
-import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
 function formatPrice(value?: number) {
   if (value == null) return null;
@@ -22,18 +22,16 @@ function formatPrice(value?: number) {
   });
 }
 
-export function generateStaticParams() {
-  return BRANDS.map((brand) => ({ slug: brand.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const brand = getBrandBySlug(slug);
+  const brand = await getPublishedBrand(slug);
   if (!brand) return buildMetadata({ title: "Бренд не найден", description: "Бренд не найден", path: `/brands/${slug}`, noindex: true });
 
   return buildMetadata({
-    title: `${brand.name} — купить в ДомСтрой`,
-    description: `${brand.tagline}. ${brand.description[0]}`.slice(0, 300),
+    title: brand.seoTitle || `${brand.name} — купить в ДомСтрой`,
+    description: brand.seoDescription || [brand.tagline, brand.description[0]].filter(Boolean).join(". ").slice(0, 300) || `${brand.name} в магазине ДомСтрой. Товары, цены и наличие, доставка по Москве и Московской области.`,
     path: `/brands/${brand.slug}`,
     image: brand.logo,
   });
@@ -41,7 +39,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BrandPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const brand = getBrandBySlug(slug);
+  const brand = await getPublishedBrand(slug);
   if (!brand) notFound();
 
   // Популярные товары подбираем поиском по локальному зеркалу каталога
@@ -52,14 +50,19 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   let popularProducts: MoyskladAssortmentItem[] = [];
   if (brand.inCatalog) {
     try {
-      const result = await getCatalogAssortment({ search: brand.searchTerm, limit: 8 });
-      popularProducts = result.rows;
+      if (brand.productIds.length) {
+        const selected = await getCatalogItemsByIds(brand.productIds);
+        popularProducts = brand.productIds.flatMap(id => selected.get(id) ? [selected.get(id)!] : []);
+      } else if (brand.searchTerm) {
+        const result = await getCatalogAssortment({ search: brand.searchTerm, limit: 8 });
+        popularProducts = result.rows;
+      }
     } catch {
       popularProducts = [];
     }
   }
 
-  const catalogHref = `/catalog?q=${encodeURIComponent(brand.searchTerm)}`;
+  const catalogHref = brand.searchTerm ? `/catalog?q=${encodeURIComponent(brand.searchTerm)}` : "/catalog";
 
   return (
     <div className="min-h-screen bg-stone-50 text-slate-900">
@@ -76,12 +79,13 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
           "@type": "Brand",
           name: brand.name,
           description: brand.description.join(" "),
-          logo: brand.logo,
+          logo: absoluteUrl(brand.logo),
+          url: absoluteUrl(`/brands/${brand.slug}`),
         }}
       />
       <SiteHeader />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main className="mx-auto min-w-0 [overflow-wrap:anywhere] max-w-6xl px-4 py-8 sm:px-6">
         <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
           <Link href="/brands" prefetch={false} className="hover:text-amber-600">Бренды</Link>
           <span>/</span>
@@ -90,13 +94,12 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
 
         <section className="grid gap-8 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-10 md:grid-cols-[220px_1fr] md:items-center">
           <div className="flex h-32 items-center justify-center rounded-2xl bg-[#fdf8f1] md:h-40">
-            <Image src={brand.logo} alt={brand.name} width={220} height={120} className="h-20 w-auto object-contain md:h-28" />
+            <MediaImage src={brand.logo} fallbackSrc={brandSummary(brand).fallbackSrc} alt={brand.name} width={220} height={120} className="h-20 w-auto object-contain md:h-28" />
           </div>
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-600">бренд</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{brand.name}</h1>
             <p className="mt-3 text-lg text-slate-600">{brand.tagline}</p>
-            {brand.inCatalog && (
               <Link
                 href={catalogHref}
                 prefetch={false}
@@ -105,22 +108,21 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 Смотреть товары {brand.name} в каталоге
                 <span aria-hidden>→</span>
               </Link>
-            )}
           </div>
         </section>
 
-        <section className="mt-8 grid gap-8 lg:grid-cols-[2fr_1fr]">
-          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+        {(brand.description.length > 0 || brand.categories.length > 0 || brand.advantages.length > 0) && <section className="mt-8 grid gap-8 lg:grid-cols-[2fr_1fr]">
+          {brand.description.length > 0 && <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
             <h2 className="text-xl font-semibold text-slate-900">О бренде</h2>
             <div className="mt-4 space-y-4 text-sm leading-relaxed text-slate-600">
               {brand.description.map((paragraph, index) => (
-                <p key={index}>{paragraph}</p>
+                <p key={index} className="whitespace-pre-line [overflow-wrap:anywhere]">{paragraph}</p>
               ))}
             </div>
-          </div>
+          </div>}
 
           <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+            {brand.categories.length > 0 && <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Категории товаров</h2>
               <ul className="mt-4 space-y-2 text-sm text-slate-600">
                 {brand.categories.map((category) => (
@@ -130,9 +132,9 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   </li>
                 ))}
               </ul>
-            </div>
+            </div>}
 
-            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+            {brand.advantages.length > 0 && <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Преимущества</h2>
               <ul className="mt-4 space-y-2 text-sm text-slate-600">
                 {brand.advantages.map((advantage) => (
@@ -142,13 +144,13 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   </li>
                 ))}
               </ul>
-            </div>
+            </div>}
           </div>
-        </section>
+        </section>}
 
         {brand.inCatalog && popularProducts.length > 0 && (
           <section className="mt-10">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-slate-900">Популярные товары {brand.name}</h2>
               <Link href={catalogHref} prefetch={false} className="text-sm font-semibold text-amber-600 hover:text-amber-700">
                 Весь каталог {brand.name} →
@@ -169,7 +171,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                       <ProductCardMedia images={galleryUrls} alt={item.name} />
                     </div>
                     <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-sm font-medium text-slate-800">{item.name}</p>
-                    <div className="mt-2 flex items-center justify-between">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-amber-600">{formatPrice(price) ?? "по запросу"}</span>
                       <ProductCartControl item={item} size="sm" />
                     </div>

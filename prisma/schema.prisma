@@ -187,6 +187,26 @@ model Banner {
   updatedAt DateTime @updatedAt
 }
 
+// Страница бренда, оформление и подборка товаров редактируются вместе.
+model BrandProfile {
+  slug           String   @id
+  name           String
+  logo           String
+  tagline        String   @default("")
+  description    String[] @default([])
+  categories     String[] @default([])
+  advantages     String[] @default([])
+  searchTerm     String   @default("")
+  productIds     String[] @default([])
+  active         Boolean  @default(true)
+  showOnHome     Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  seoTitle       String   @default("")
+  seoDescription String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 // Выбранная наклейка шапки; встроенные варианты хранятся в Git.
 model HeaderCampaign {
   id          String   @id @default("main")

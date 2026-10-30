@@ -18,6 +18,7 @@ type CatalogSearchParams = {
   priceTo?: string;
   page?: string;
   view?: string;
+  attributes?: string;
 };
 
 function getPageNumber(value?: string): number {
@@ -42,7 +43,7 @@ export async function generateMetadata({
   if (page > 1) canonicalParams.set("page", String(page));
   const canonicalPath = `/catalog${canonicalParams.size ? `?${canonicalParams}` : ""}`;
   const noindex = Boolean(
-    (params.sort && params.sort !== "popular") || params.stock || params.priceFrom || params.priceTo
+    (params.sort && params.sort !== "popular") || params.stock || params.priceFrom || params.priceTo || params.attributes
   );
 
   if (search) {
@@ -146,7 +147,8 @@ export default async function CatalogPage({
             initialPriceFrom={params?.priceFrom}
             initialPriceTo={params?.priceTo}
             initialPage={initialPage}
-            initialView={params?.view === "products" ? "products" : undefined}
+            initialView={params?.view === "products" || params?.view === "categories" ? params.view : undefined}
+            initialAttributes={params?.attributes}
             initialPromoItems={initialPromoItems}
           />
         </div>

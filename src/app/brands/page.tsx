@@ -3,9 +3,9 @@ import MediaImage from "@/components/MediaImage";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 import JsonLd from "@/components/JsonLd";
-import { prisma } from "@/lib/prisma";
+import { getPublishedBrands, brandSummary } from "@/lib/brand-profiles";
 import { buildBreadcrumbJsonLd, buildMetadata } from "@/lib/seo";
-import { BRANDS as BRAND_PROFILES } from "@/lib/brands";
+
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +15,6 @@ export const metadata: Metadata = buildMetadata({
   path: "/brands",
 });
 
-// Реальные бренды-партнёры - у каждого есть отдельная SEO-страница с описанием,
-// категориями и (если бренд есть в остатках МойСклад) популярными товарами, см.
-// src/lib/brands.ts и src/app/brands/[slug]/page.tsx. Безымянные заглушки
-// "Бренд 6", "Бренд 7" и т.д. намеренно убраны - они создавали впечатление
-// технически незавершённого сайта.
-const BRANDS = BRAND_PROFILES.map((brand) => ({ name: brand.name, logo: brand.logo, slug: brand.slug }));
-
 const BRAND_NOTES = [
   "Работаем напрямую с производителя и официальными дилерами",
   "Формируем складские запасы по ключевым позициям",
@@ -29,20 +22,7 @@ const BRAND_NOTES = [
 ];
 
 export default async function BrandsPage() {
-  const media = await prisma.banner.findMany({
-    where: { type: "BRAND", active: true },
-    orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
-  });
-  const brands = [
-    ...BRANDS.map((brand, index) => ({
-      ...brand,
-      logo: media.find((item) => item.sortOrder === index)?.image || brand.logo,
-      fallbackSrc: brand.logo,
-    })),
-    ...media
-      .filter((item) => item.sortOrder >= BRANDS.length && item.image)
-      .map((item) => ({ name: item.title, logo: item.image as string, fallbackSrc: item.image as string, slug: undefined as string | undefined })),
-  ];
+  const brands = (await getPublishedBrands()).map(brandSummary);
 
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
@@ -99,14 +79,14 @@ export default async function BrandsPage() {
               );
               return brand.slug ? (
                 <Link
-                  key={brand.name}
+                  key={brand.slug}
                   href={`/brands/${brand.slug}`}
                   className="rounded-[28px] border border-slate-100 bg-white/90 p-5 shadow-sm transition hover:-translate-y-1 hover:border-amber-200 hover:shadow-md"
                 >
                   {content}
                 </Link>
               ) : (
-                <div key={brand.name} className="rounded-[28px] border border-slate-100 bg-white/90 p-5 shadow-sm">
+                <div key={brand.slug} className="rounded-[28px] border border-slate-100 bg-white/90 p-5 shadow-sm">
                   {content}
                 </div>
               );

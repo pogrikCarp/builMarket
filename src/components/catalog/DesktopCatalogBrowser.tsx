@@ -10,6 +10,8 @@ import { getItemGalleryThumbnailUrls, type CatalogListItem } from "@/lib/moyskla
 import { buildFolderTree, getFolderPath } from "@/lib/folder-tree";
 import type { ResolvedPromoItem } from "@/lib/promo";
 import ProductCardMedia from "@/components/catalog/ProductCardMedia";
+import useCatalogReturn from "@/components/catalog/useCatalogReturn";
+import { parseAttributeFilters, serializeAttributeFilters } from "@/lib/catalog-return";
 import {
   CATALOG_SORT_LABELS as SORT_LABELS,
   DEFAULT_CATALOG_SORT,
@@ -69,6 +71,7 @@ export type CatalogBrowserProps = {
   initialPriceFrom?: string;
   initialPriceTo?: string;
   initialPage?: number;
+  initialAttributes?: string;
   initialPromoItems?: ResolvedPromoItem[];
 };
 
@@ -83,6 +86,7 @@ function buildCatalogUrl(state: {
   priceFrom: string;
   priceTo: string;
   page: number;
+  attributes?: string;
 }): string {
   const params = new URLSearchParams();
   const trimmedSearch = state.search.trim();
@@ -100,6 +104,7 @@ function buildCatalogUrl(state: {
   if (state.priceFrom) params.set("priceFrom", state.priceFrom);
   if (state.priceTo) params.set("priceTo", state.priceTo);
   if (state.page > 1) params.set("page", String(state.page));
+  if (state.attributes) params.set("attributes", state.attributes);
 
   const query = params.toString();
   return `/catalog${query ? `?${query}` : ""}`;
@@ -116,6 +121,7 @@ export default function DesktopCatalogBrowser({
   initialPriceFrom = "",
   initialPriceTo = "",
   initialPage = 1,
+  initialAttributes,
   initialPromoItems = [],
 }: CatalogBrowserProps) {
   const initialFolder = useMemo(
@@ -155,7 +161,7 @@ export default function DesktopCatalogBrowser({
   const [onlyInStock, setOnlyInStock] = useState(initialOnlyInStock);
   const [priceFrom, setPriceFrom] = useState(initialPriceFrom);
   const [priceTo, setPriceTo] = useState(initialPriceTo);
-  const [attributeFilters, setAttributeFilters] = useState<Record<string, Set<string>>>({});
+  const [attributeFilters, setAttributeFilters] = useState(() => parseAttributeFilters(initialAttributes));
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [previousInitialPage, setPreviousInitialPage] = useState(initialPage);
@@ -173,6 +179,7 @@ export default function DesktopCatalogBrowser({
     priceFrom: initialPriceFrom,
     priceTo: initialPriceTo,
     page: initialPage,
+    attributes: serializeAttributeFilters(parseAttributeFilters(initialAttributes)),
   });
   const [previousSelection, setPreviousSelection] = useState(incomingUrl);
   const [synchronizedUrl, setSynchronizedUrl] = useState<string | null>(null);
@@ -181,7 +188,7 @@ export default function DesktopCatalogBrowser({
     setSynchronizedUrl(null);
     const nextSection = initialFolder ? "folder" : initialSection;
     if (incomingUrl !== synchronizedUrl) {
-      if (activeSection !== nextSection || activeFolder?.id !== initialFolder?.id || searchQuery !== initialSearch) setAttributeFilters({});
+      setAttributeFilters(parseAttributeFilters(initialAttributes));
       setActiveSection(nextSection);
       setActiveFolder(initialFolder);
       setSearchQuery(initialSearch);
@@ -254,6 +261,7 @@ export default function DesktopCatalogBrowser({
   }, []);
 
   const handleFolderClick = (folder: MoyskladProductFolder) => {
+    setAttributeFilters({});
     setCurrentPage(1);
     setActiveSection("folder");
     setActiveFolder(folder);
@@ -262,6 +270,7 @@ export default function DesktopCatalogBrowser({
 
 
   const handleShowAll = () => {
+    setAttributeFilters({});
     setCurrentPage(1);
     if (abortRef.current) abortRef.current.abort();
     setActiveSection("all");
@@ -274,6 +283,7 @@ export default function DesktopCatalogBrowser({
   };
 
   const handleShowPromo = () => {
+    setAttributeFilters({});
     setCurrentPage(1);
     if (abortRef.current) abortRef.current.abort();
     setLoading(false);
@@ -294,18 +304,14 @@ export default function DesktopCatalogBrowser({
   // покажет тот пейлоад, что был закэширован при первом заходе на /catalog (то есть
   // "все товары"), полностью игнорируя выбранный раздел и фильтры.
   const router = useRouter();
+  const catalogUrl = buildCatalogUrl({ section: activeSection, folderId: activeFolder?.id ?? null,
+    search: searchQuery, sort: sortOption, inStock: onlyInStock, priceFrom, priceTo, page: currentPage,
+    attributes: serializeAttributeFilters(attributeFilters) });
+  const { leaving, navigateToProduct } = useCatalogReturn({ url: catalogUrl, incomingUrl, ready: !loading,
+    synchronize: (url) => { setSynchronizedUrl(url); router.replace(url, { scroll: false }); } });
   const isFirstUrlSyncRef = useRef(true);
   useEffect(() => {
-    const url = buildCatalogUrl({
-      section: activeSection,
-      folderId: activeFolder?.id ?? null,
-      search: searchQuery,
-      sort: sortOption,
-      inStock: onlyInStock,
-      priceFrom,
-      priceTo,
-      page: currentPage,
-    });
+    const url = catalogUrl;
 
     // На самом первом рендере адрес уже соответствует переданным initial*-пропсам —
     // не нужно сразу же дёргать роутер повторным запросом.
@@ -315,25 +321,19 @@ export default function DesktopCatalogBrowser({
     }
     // A header navigation already supplied this URL. Replacing it again after
     // the debounce could overwrite a subsequent click on another header link.
-    if (url === incomingUrl) return;
+    if (url === incomingUrl || leaving.current) return;
 
     const timeoutId = window.setTimeout(() => {
+      if (leaving.current) return;
       setSynchronizedUrl(url);
       router.replace(url, { scroll: false });
     }, 400);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeSection, activeFolder, searchQuery, sortOption, onlyInStock, priceFrom, priceTo, currentPage, router, incomingUrl]);
+  }, [catalogUrl, router, incomingUrl, leaving]);
 
   // Фильтры характеристик сбрасываем только при смене раздела, а не при
   // обновлении статистики/цен того же списка или смене страницы.
-  const filterContext = `${activeSection}:${activeFolder?.id ?? ""}`;
-  const [previousFilterContext, setPreviousFilterContext] = useState(filterContext);
-  if (filterContext !== previousFilterContext) {
-    setPreviousFilterContext(filterContext);
-    setAttributeFilters({});
-  }
-
   const availableAttributeFacets = useMemo(() => {
     const facets = new Map<string, Set<string>>();
     for (const item of items) {
@@ -450,6 +450,7 @@ export default function DesktopCatalogBrowser({
     priceFrom,
     priceTo,
     page,
+    attributes: serializeAttributeFilters(attributeFilters),
   });
 
   // Рекурсивный список подкатегорий для десктопного сайдбара — раскрыт всегда, поддерживает
@@ -615,7 +616,7 @@ export default function DesktopCatalogBrowser({
       </aside>
 
       {/* Область товаров */}
-      <div ref={catalogTopRef} className="min-w-0 flex-1 scroll-mt-20 self-start bg-stone-50 p-3 sm:p-6">
+      <div ref={catalogTopRef} data-catalog-view="desktop" className="min-w-0 flex-1 scroll-mt-20 self-start bg-stone-50 p-3 sm:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
@@ -786,6 +787,8 @@ export default function DesktopCatalogBrowser({
                 <Link
                   key={promoId}
                   href={`/catalog/${item.id}`}
+                    id={`catalog-product-${item.id}`}
+                    onNavigate={(event) => navigateToProduct(event, item.id)}
                   prefetch={false}
                   className="flex flex-col justify-between overflow-hidden rounded-xl border border-amber-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
@@ -836,6 +839,8 @@ export default function DesktopCatalogBrowser({
                   <Link
                     key={item.id}
                     href={`/catalog/${item.id}`}
+                    id={`catalog-product-${item.id}`}
+                    onNavigate={(event) => navigateToProduct(event, item.id)}
                     // В каталоге одновременно видно/рядом много карточек - без prefetch={false}
                     // Next.js тихо предзагружал бы карточку товара (и, соответственно, запрос
                     // к МойСклад) для каждой из них, что и приводило к перегрузке лимита API.

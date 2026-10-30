@@ -8,7 +8,7 @@ import ProductFavoriteToggle from "@/components/favorites/ProductFavoriteToggle"
 import ProductCartControl from "@/components/cart/ProductCartControl";
 import CallbackModal from "@/components/CallbackModal";
 import { LOOKBOOKS } from "@/lib/lookbooks";
-import { BRANDS as BRAND_PROFILES } from "@/lib/brands";
+import type { BrandSummary } from "@/lib/brand-profiles";
 import { buildFolderTree } from "@/lib/folder-tree";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/layout/SiteHeader";
@@ -54,15 +54,6 @@ const BRAND_LINKS: LinkItem[] = [
   { label: "Все бренды", href: "/brands" },
   { label: "Все сертификаты", href: "/certificates" },
 ];
-
-// Тайтлы и лого пяти реальных брендов совпадают с src/lib/brands.ts - оттуда же
-// берём slug, чтобы логотип на главной вёл на страницу конкретного бренда
-// (/brands/[slug]), а не только на общий список /brands.
-const BRANDS: { name: string; logo: string; slug?: string }[] = BRAND_PROFILES.map((brand) => ({
-  name: brand.name,
-  logo: brand.logo,
-  slug: brand.slug,
-}));
 
 const CERT_PLACEHOLDERS = CERTIFICATES.map((item) => ({ ...item, label: `Сертификат №${item.id}` }));
 
@@ -594,7 +585,7 @@ const CertificatesCarousel = ({ cards }: { cards: CertificateCard[] }) => {
   );
 };
 
-export default function HomeClient() {
+export default function HomeClient({ brands }: { brands: BrandSummary[] }) {
   const [callbackOpen, setCallbackOpen] = useState(false);
   const [homeMedia, setHomeMedia] = useState<HomeMedia[]>([]);
   const [promoItems, setPromoItems] = useState<ResolvedPromoItem[]>([]);
@@ -634,19 +625,7 @@ export default function HomeClient() {
     ],
     [homeMedia]
   );
-  const brands = useMemo(
-    () => [
-      ...BRANDS.map((brand, index) => ({
-        ...brand,
-        logo: homeMedia.find((item) => item.type === "BRAND" && item.sortOrder === index)?.image || brand.logo,
-        fallbackSrc: brand.logo,
-      })),
-      ...homeMedia
-        .filter((item) => item.type === "BRAND" && item.sortOrder >= BRANDS.length && item.image)
-        .map((item) => ({ name: item.title, logo: item.image as string, fallbackSrc: item.image as string, slug: undefined as string | undefined })),
-    ],
-    [homeMedia]
-  );
+
 
   return (
     <div className="min-h-screen bg-[#f6f3ee] text-slate-900">
@@ -941,11 +920,11 @@ export default function HomeClient() {
                 const cardClassName =
                   "group premium-card flex h-24 items-center justify-center rounded-xl border border-slate-100 bg-white px-4 shadow-sm transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg";
                 return brand.slug ? (
-                  <Link key={brand.name} href={`/brands/${brand.slug}`} prefetch={false} className={cardClassName} title={`О бренде ${brand.name}`}>
+                  <Link key={brand.slug} href={`/brands/${brand.slug}`} prefetch={false} className={cardClassName} title={`О бренде ${brand.name}`}>
                     {logo}
                   </Link>
                 ) : (
-                  <div key={brand.name} className={cardClassName}>
+                  <div key={brand.slug} className={cardClassName}>
                     {logo}
                   </div>
                 );

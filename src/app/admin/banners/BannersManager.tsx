@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Admin previews show the uploaded file without optimization. */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { DEFAULT_MEDIA, getDefaultMedia, type MediaType } from "@/lib/default-media";
 
 type Banner = {
@@ -20,7 +21,6 @@ const SECTIONS: { type: MediaType; title: string; description: string }[] = [
   { type: "HERO", title: "Главный баннер", description: "Четыре слайда главного баннера, слева направо. На телефоне загруженное изображение показывается целиком, без стандартных надписей поверх него." },
   { type: "LOOKBOOK", title: "Карточки наборов", description: "Четыре карточки наборов на главной странице." },
   { type: "CERTIFICATE", title: "Сертификаты", description: "Сертификаты на главной и странице сертификатов." },
-  { type: "BRAND", title: "Бренды", description: "Логотипы на главной и странице брендов." },
 ];
 
 async function readResponse(response: Response) {
@@ -177,6 +177,11 @@ export function BannersManager() {
         {notice && <p role="status" className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">{notice}</p>}
       </section>
       {loading && <p className="text-sm text-slate-400">Загрузка...</p>}
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-xl font-semibold">Бренды</h2>
+        <p className="mt-2 text-sm text-slate-500">Логотипы и страницы брендов теперь редактируются вместе в конструкторе брендов. Все прежние логотипы сохранены.</p>
+        <Link href="/admin/brands" className="mt-4 inline-flex rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white">Открыть конструктор брендов →</Link>
+      </section>
       {loaded && SECTIONS.map((section) => {
         const defaults = DEFAULT_MEDIA.filter((item) => item.type === section.type);
         const extras = banners.filter((item) => item.type === section.type && !getDefaultMedia(item.type, item.sortOrder));

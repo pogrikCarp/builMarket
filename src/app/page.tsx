@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import HomeClient from "./HomeClient";
+import { getPublishedBrands, brandSummary } from "@/lib/brand-profiles";
 import { buildMetadata } from "@/lib/seo";
 
-// Главная страница целиком интерактивна (карусель баннеров, мега-меню, поиск),
-// поэтому вся вёрстка и логика вынесены в клиентский HomeClient, а этот файл -
-// серверный тонкий враппер, который только отдаёт metadata (title/description/OG)
-// для поисковых систем. Сама страница при этом не меняется ни визуально, ни по коду.
+// Интерактивная вёрстка находится в HomeClient. Опубликованные бренды приходят
+// с сервера, поэтому новые ссылки видны и покупателю, и поисковому роботу сразу.
 export const metadata: Metadata = buildMetadata({
   titleAbsolute: "ДомСтрой — строительные материалы, электроинструменты и наборы для ремонта",
   description:
@@ -13,6 +12,9 @@ export const metadata: Metadata = buildMetadata({
   path: "/",
 });
 
-export default function Home() {
-  return <HomeClient />;
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const brands = (await getPublishedBrands()).filter(brand => brand.showOnHome).map(brandSummary);
+  return <HomeClient brands={brands} />;
 }

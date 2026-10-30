@@ -56,7 +56,7 @@ export function CatalogDirectory(props: Props) {
         </button>}
         <h2>{folder?.name ?? "Все разделы каталога"}</h2>
       </div>
-      {folder && <Link href={`/catalog?folder=${folder.id}`} prefetch={false} className={styles.sectionAction}
+      {folder && <Link href={`/catalog?folder=${folder.id}&view=products`} prefetch={false} className={styles.sectionAction}
         onNavigate={(event) => { event.preventDefault(); props.onSelect(folder); }}>
         Все товары раздела<ArrowRightIcon className={styles.icon} aria-hidden="true" />
       </Link>}

@@ -16,7 +16,7 @@ function subscribeToViewport(onChange: () => void) {
 const getMobileSnapshot = () => window.matchMedia(PHONE_QUERY).matches;
 const getServerSnapshot = () => false;
 
-type Props = CatalogBrowserProps & { initialView?: "products" };
+type Props = CatalogBrowserProps & { initialView?: "products" | "categories" };
 
 export default function CatalogBrowser(props: Props) {
   // Render the existing desktop catalog on the server. On phones, the media

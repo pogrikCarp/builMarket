@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getCatalogFolders, getCatalogSitemapProducts } from "@/lib/catalog-db";
 import { LOOKBOOKS } from "@/lib/lookbooks";
-import { BRANDS } from "@/lib/brands";
+import { getPublishedBrands } from "@/lib/brand-profiles";
 import { SITE_URL, absoluteUrl } from "@/lib/seo";
 
 // Карта сайта строится из локального зеркала каталога (src/lib/catalog-db.ts),
@@ -37,9 +37,10 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: ChangeFr
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [folders, products] = await Promise.all([
+  const [folders, products, brands] = await Promise.all([
     getCatalogFolders(),
     getCatalogSitemapProducts(),
+    getPublishedBrands(),
   ]);
 
   const entries: MetadataRoute.Sitemap = STATIC_ROUTES.map((route) => ({
@@ -57,8 +58,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
 
   entries.push(
-    ...BRANDS.map((brand) => ({
+    ...brands.map((brand) => ({
       url: `${SITE_URL}/brands/${brand.slug}`,
+      lastModified: brand.updatedAt ?? undefined,
       changeFrequency: "monthly" as ChangeFrequency,
       priority: 0.5,
     }))
