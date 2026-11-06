@@ -154,5 +154,23 @@ for logfile in /var/log/nginx/error.log /var/log/nginx/domstroy.error.log; do
       else other++
     }
     END {printf "sample_entries=%d tls=%d timeout=%d upstream=%d denied=%d other=%d\n",total,tls,timeout,upstream,denied,other}'
+  tail -n 1000 "$logfile" 2>/dev/null | awk '
+    match($0,/SSL routines:[[:alnum:] _:-]+/) {reason[substr($0,RSTART,RLENGTH)]++}
+    END {for(item in reason) print "openssl_reason=" item " count=" reason[item]}' | sort
 done
+
+section "Requested VPN test marker (timestamps and statuses only)"
+if [ -r /var/log/nginx/access.log ]; then
+  tail -n 20000 /var/log/nginx/access.log | awk '
+    /[?&]vpncheck=20261106([& \" ]|$)/ {
+      count++
+      if(match($0,/\[[0-9][0-9]\/[[:alpha:]][[:alpha:]][[:alpha:]]\/[0-9][0-9][0-9][0-9]:[0-9:]+ [+-][0-9]+\]/))
+        stamp=substr($0,RSTART,RLENGTH)
+      else stamp="unavailable"
+      if(match($0,/\" [1-5][0-9][0-9] /)) status=substr($0,RSTART+2,3)
+      else status="unavailable"
+      print "test_time=" stamp " status=" status
+    }
+    END {print "marker_request_count=" count+0}'
+fi
 unset nginx_config nginx_test rules
