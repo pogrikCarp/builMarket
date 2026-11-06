@@ -1,0 +1,54 @@
+name: Read-only VPN connectivity diagnostics
+
+on:
+  push:
+    branches:
+      - codex/vpn-connectivity
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connectivity-diagnostics-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    # A manual dispatch from main must never access production either.
+    if: github.ref == 'refs/heads/codex/vpn-connectivity'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout diagnostic script
+        uses: actions/checkout@v5
+
+      - name: Inspect production connectivity without deploying
+        shell: bash
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+          : "${SSH_KEY:?SSH_KEY is required}" "${SSH_HOST:?SSH_HOST is required}"
+          : "${SSH_PORT:?SSH_PORT is required}" "${SSH_USER:?SSH_USER is required}"
+          scratch_dir="$(mktemp -d "$RUNNER_TEMP/domstroy-diagnostics.XXXXXX")"
+          cleanup() {
+            rm -f -- "$scratch_dir/key" "$scratch_dir/known_hosts"
+            rmdir -- "$scratch_dir"
+          }
+          trap cleanup EXIT
+          umask 077
+          printf '%s\n' "$SSH_KEY" > "$scratch_dir/key"
+          chmod 600 "$scratch_dir/key"
+          unset SSH_KEY
+          # Same keyscan trust bootstrap as the existing deployment workflow.
+          ssh-keyscan -T 10 -p "$SSH_PORT" "$SSH_HOST" > "$scratch_dir/known_hosts" 2>/dev/null
+          test -s "$scratch_dir/known_hosts"
+          ssh -T -p "$SSH_PORT" -i "$scratch_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$scratch_dir/known_hosts" \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
+            "$SSH_USER@$SSH_HOST" 'bash -s' < scripts/diagnose-connectivity.sh
